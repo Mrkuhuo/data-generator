@@ -176,6 +176,167 @@
 - Docker
 - Docker Compose
 
+## 开发环境搭建
+
+### 1. 数据库初始化
+
+在开始使用应用前，需要先创建数据库和相关表结构：
+
+```sql
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS data_generator DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+
+-- 使用数据库
+USE data_generator;
+
+-- 创建数据源配置表
+CREATE TABLE IF NOT EXISTS `data_source` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` varchar(100) NOT NULL COMMENT '数据源名称',
+  `type` varchar(50) NOT NULL COMMENT '数据源类型：MYSQL, KAFKA等',
+  `url` varchar(500) NOT NULL COMMENT '连接URL',
+  `username` varchar(100) DEFAULT NULL COMMENT '用户名',
+  `password` varchar(100) DEFAULT NULL COMMENT '密码',
+  `driver_class` varchar(200) DEFAULT NULL COMMENT '驱动类名',
+  `properties` text DEFAULT NULL COMMENT '其他连接属性，JSON格式',
+  `status` tinyint(1) DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据源配置表';
+
+-- 创建任务配置表
+CREATE TABLE IF NOT EXISTS `task_config` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` varchar(100) NOT NULL COMMENT '任务名称',
+  `data_source_id` bigint(20) NOT NULL COMMENT '数据源ID',
+  `target_table` varchar(100) DEFAULT NULL COMMENT '目标表名',
+  `topic_name` varchar(100) DEFAULT NULL COMMENT 'Kafka主题名',
+  `batch_size` int(11) DEFAULT 1000 COMMENT '批量大小',
+  `total_count` bigint(20) DEFAULT 0 COMMENT '总记录数',
+  `frequency` int(11) DEFAULT 0 COMMENT '频率(ms)',
+  `write_mode` varchar(20) DEFAULT 'APPEND' COMMENT '写入模式：OVERWRITE, APPEND, UPDATE',
+  `status` varchar(20) DEFAULT 'CREATED' COMMENT '状态：CREATED, RUNNING, PAUSED, COMPLETED, FAILED',
+  `cron_expression` varchar(100) DEFAULT NULL COMMENT 'Cron表达式',
+  `config_json` text DEFAULT NULL COMMENT '配置JSON',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  KEY `idx_data_source_id` (`data_source_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务配置表';
+
+-- 创建任务执行记录表
+CREATE TABLE IF NOT EXISTS `task_execution` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_id` bigint(20) NOT NULL COMMENT '任务ID',
+  `start_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '开始时间',
+  `end_time` datetime DEFAULT NULL COMMENT '结束时间',
+  `status` varchar(20) NOT NULL COMMENT '状态：RUNNING, COMPLETED, FAILED',
+  `processed_count` bigint(20) DEFAULT 0 COMMENT '已处理记录数',
+  `error_message` text DEFAULT NULL COMMENT '错误信息',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_task_id` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务执行记录表';
+
+-- 创建字段配置表
+CREATE TABLE IF NOT EXISTS `field_config` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_id` bigint(20) NOT NULL COMMENT '任务ID',
+  `field_name` varchar(100) NOT NULL COMMENT '字段名',
+  `field_type` varchar(50) NOT NULL COMMENT '字段类型',
+  `generator_type` varchar(50) NOT NULL COMMENT '生成器类型',
+  `generator_config` text DEFAULT NULL COMMENT '生成器配置，JSON格式',
+  `is_primary_key` tinyint(1) DEFAULT 0 COMMENT '是否主键',
+  `is_nullable` tinyint(1) DEFAULT 1 COMMENT '是否可为空',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_field` (`task_id`, `field_name`),
+  KEY `idx_task_id` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='字段配置表';
+```
+
+您可以将上述SQL保存为`init.sql`文件，然后执行：
+
+```bash
+mysql -u用户名 -p密码 < init.sql
+```
+
+或者在MySQL客户端中直接执行这些SQL语句。
+
+### 2. 后端开发环境启动
+
+#### 环境要求
+- JDK 11+
+- Maven 3.6+
+- MySQL 5.7+
+- Kafka 2.8+
+
+#### 步骤
+
+1. 进入后端目录
+```bash
+cd backend
+```
+
+2. 编译项目
+```bash
+mvn clean package -DskipTests
+```
+
+3. 启动应用
+```bash
+java -jar target/data-generator-backend-1.0.0.jar
+```
+
+或者在开发IDE中直接运行`com.datagenerator.DataGeneratorApplication`类。
+
+#### 配置说明
+
+后端配置文件位于`backend/src/main/resources/application.yml`，您可以根据需要修改数据库连接、Kafka配置等。
+
+### 3. 前端开发环境启动
+
+#### 环境要求
+- Node.js 14+
+- npm 6+ 或 yarn 1.22+
+
+#### 步骤
+
+1. 进入前端目录
+```bash
+cd frontend
+```
+
+2. 安装依赖
+```bash
+npm install
+# 或
+yarn install
+```
+
+3. 启动开发服务器
+```bash
+npm run serve
+# 或
+yarn serve
+```
+
+4. 构建生产版本
+```bash
+npm run build
+# 或
+yarn build
+```
+
+#### 配置说明
+
+前端API配置文件位于`frontend/src/config/index.js`，您可以根据需要修改API地址等配置。
+
 ## 项目结构
 
 - `frontend/`: 前端Vue应用
@@ -218,3 +379,20 @@ docker-compose logs frontend
 docker-compose logs mysql
 docker-compose logs kafka
 ```
+
+### 常见问题
+
+1. **数据库连接失败**
+   - 检查数据库服务是否正常运行
+   - 验证连接信息是否正确
+   - 确认数据库用户是否有足够权限
+
+2. **Kafka连接问题**
+   - 检查Kafka服务是否正常运行
+   - 验证主题是否已创建
+   - 检查网络连接是否通畅
+
+3. **前端无法连接后端API**
+   - 确认后端服务是否正常运行
+   - 检查前端配置中的API地址是否正确
+   - 检查是否存在跨域问题
