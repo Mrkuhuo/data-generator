@@ -47,6 +47,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import lombok.Data;
 
 @Slf4j
 @Service
@@ -54,6 +57,7 @@ import java.time.Year;
 public class DataGenerateService {
 
     private final DataSourceService dataSourceService;
+    private static DataSourceService staticDataSourceService;
     private final ExecutionRecordService executionRecordService;
     private final KafkaTemplate<String, String> kafkaProducer;
     private final DataGeneratorFactory dataGeneratorFactory;
@@ -64,10 +68,15 @@ public class DataGenerateService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @PostConstruct
+    public void init() {
+        staticDataSourceService = dataSourceService;
+    }
+
     /**
      * 获取数据库连接
      */
-    private Connection getConnection(DataSource dataSource) throws SQLException {
+    private static Connection getConnection(DataSource dataSource) throws SQLException {
         String url = dataSource.getUrl();
         String username = dataSource.getUsername();
         String password = dataSource.getPassword();
@@ -104,7 +113,7 @@ public class DataGenerateService {
     /**
      * 获取当前数据库名称
      */
-    private String getCurrentDatabaseName(Connection conn) {
+    private static String getCurrentDatabaseName(Connection conn) {
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT DATABASE()")) {
             if (rs.next()) {
@@ -258,7 +267,17 @@ public class DataGenerateService {
                 if ("KAFKA".equals(dataSource.getType())) {
                     processKafkaTopics(task, dataSource, targetTables);
                 } else {
-                    processDatabaseTables(task, dataSource, targetTables);
+                    // 对于数据库表，如果没有提供模板，自动生成
+                    if (task.getTemplate() == null || task.getTemplate().trim().isEmpty()) {
+                        for (String tableName : targetTables) {
+                            String template = generateTemplateFromMetadata(dataSource, tableName.trim());
+                            task.setTemplate(template);
+                            log.info("为表 {} 自动生成模板: {}", tableName, template);
+                            processDatabaseTables(task, dataSource, new String[]{tableName.trim()});
+                        }
+                    } else {
+                        processDatabaseTables(task, dataSource, targetTables);
+                    }
                 }
                 
                 log.info("本次数据生成完成，等待下次执行");
@@ -867,21 +886,17 @@ public class DataGenerateService {
         // 用于存储生成的主键值
         Set<Object> generatedKeys = new HashSet<>();
         
-        // 获取表的外键信息
-        Map<String, ForeignKeyInfo> foreignKeys = getForeignKeyInfo(tableName);
-        
-        // 检查外键引用的表是否已经有数据
-        for (ForeignKeyInfo fkInfo : foreignKeys.values()) {
-            if (!hasData(dataSource, fkInfo.referencedTable)) {
-                log.warn("表 {} 引用的表 {} 没有数据，可能会导致外键约束失败", 
-                    tableName, fkInfo.referencedTable);
-            }
-        }
-        
         try (Connection conn = getConnection(dataSource)) {
             // 获取表结构
             Map<String, Map<String, String>> tableColumns = getTableDefinition(conn, tableName);
             log.info("表 {} 结构: {}", tableName, tableColumns.keySet());
+            
+            if (tableColumns.isEmpty()) {
+                throw new SQLException("无法获取表结构信息");
+            }
+            
+            // 获取表的外键信息
+            Map<String, ForeignKeyInfo> foreignKeys = getForeignKeyInfo(tableName);
                 
             // 获取当前最大ID
             Long currentMaxId = null;
@@ -930,19 +945,94 @@ public class DataGenerateService {
                 } else {
                     throw new IllegalArgumentException("数据生成模板不能为空");
                 }
+            } else {
+                // 如果有自定义模板，验证并确保它包含表中的字段
+                try {
+                    JsonNode templateNode = objectMapper.readTree(template);
+                    ObjectNode validatedTemplate = objectMapper.createObjectNode();
+                    
+                    // 只保留表中实际存在的字段
+                    for (String columnName : tableColumns.keySet()) {
+                        if (templateNode.has(columnName)) {
+                            validatedTemplate.set(columnName, templateNode.get(columnName));
+                        }
+                    }
+                    
+                    // 如果有字段缺失，使用默认模板补充
+                    for (Map.Entry<String, Map<String, String>> entry : tableColumns.entrySet()) {
+                        String columnName = entry.getKey();
+                        if (!validatedTemplate.has(columnName)) {
+                            Map<String, String> columnInfo = entry.getValue();
+                            
+                            // 跳过自增主键
+                            if ("PRI".equals(columnInfo.get("COLUMN_KEY")) && 
+                                "auto_increment".equalsIgnoreCase(columnInfo.get("EXTRA"))) {
+                                continue;
+                            }
+                            
+                            // 为缺失的字段生成默认模板
+                            ObjectNode fieldNode = generateFieldTemplate(columnName, columnInfo);
+                            if (fieldNode != null) {
+                                validatedTemplate.set(columnName, fieldNode);
+                            }
+                        }
+                    }
+                    
+                    template = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(validatedTemplate);
+                    task.setTemplate(template);
+                    log.info("验证并更新模板: {}", template);
+                } catch (Exception e) {
+                    log.error("验证模板失败，将使用默认模板: {}", e.getMessage());
+                    template = generateDefaultTemplate(task, tableColumns, currentMaxId, tableName);
+                    task.setTemplate(template);
+                }
             }
                 
             // 生成数据
             log.info("开始生成数据，使用模板: {}", template);
             List<Map<String, Object>> data = generator.generate(template, task.getBatchSize());
                 
+            // 验证生成的数据
+            List<Map<String, Object>> validData = new ArrayList<>();
+            for (Map<String, Object> row : data) {
+                Map<String, Object> validRow = new HashMap<>();
+                boolean hasValidFields = false;
+                
+                // 只保留表中实际存在的字段
+                for (String columnName : tableColumns.keySet()) {
+                    if (row.containsKey(columnName)) {
+                        Object value = row.get(columnName);
+                        if (value != null) {
+                            validRow.put(columnName, value);
+                            hasValidFields = true;
+                        }
+                    }
+                }
+                
+                if (hasValidFields) {
+                    validData.add(validRow);
+                }
+            }
+            
+            if (validData.isEmpty()) {
+                throw new SQLException("没有有效的字段可以插入");
+            }
+                
             // 处理生成的数据，传递已生成的主键缓存
-            data = processGeneratedData(data, tableColumns, currentMaxId, tableName, foreignKeys, generatedPrimaryKeys);
+            validData = processGeneratedData(validData, tableColumns, currentMaxId, tableName, foreignKeys, generatedPrimaryKeys);
                 
             // 验证生成的数据
-            validateGeneratedData(data, tableColumns);
+            validateGeneratedData(validData, tableColumns);
                 
-            log.info("表 {} 生成数据完成，数量: {}", tableName, data.size());
+            log.info("表 {} 生成数据完成，数量: {}", tableName, validData.size());
+            
+            // 记录第一条数据的所有字段值，用于调试
+            if (!validData.isEmpty()) {
+                Map<String, Object> firstRow = validData.get(0);
+                for (Map.Entry<String, Object> entry : firstRow.entrySet()) {
+                    log.debug("字段 {} 的值: {}", entry.getKey(), entry.getValue());
+                }
+            }
                 
             // 执行插入操作
             if ("TABLE".equals(task.getTargetType())) {
@@ -992,8 +1082,8 @@ public class DataGenerateService {
                     }
                     
                     // 构建插入SQL
-                    if (!data.isEmpty()) {
-                        Map<String, Object> firstRow = data.get(0);
+                    if (!validData.isEmpty()) {
+                        Map<String, Object> firstRow = validData.get(0);
                         
                         // 过滤出表中实际存在的字段
                         List<String> validColumns = new ArrayList<>();
@@ -1026,7 +1116,7 @@ public class DataGenerateService {
                             List<Map<String, Object>> failedRows = new ArrayList<>();
                             
                             // 第一轮：尝试批量插入所有数据
-                            for (Map<String, Object> row : data) {
+                            for (Map<String, Object> row : validData) {
                                 int paramIndex = 1;
                                 for (String column : validColumns) {
                                     pstmt.setObject(paramIndex++, row.get(column));
@@ -1048,7 +1138,7 @@ public class DataGenerateService {
                                         int startIndex = batchCount - 1000;
                                         for (int i = 0; i < updateCounts.length; i++) {
                                             if (updateCounts[i] == Statement.EXECUTE_FAILED) {
-                                                failedRows.add(data.get(startIndex + i));
+                                                failedRows.add(validData.get(startIndex + i));
                                             } else {
                                                 successCount++;
                                             }
@@ -1070,7 +1160,7 @@ public class DataGenerateService {
                                     int startIndex = batchCount - (batchCount % 1000);
                                     for (int i = 0; i < updateCounts.length; i++) {
                                         if (updateCounts[i] == Statement.EXECUTE_FAILED) {
-                                            failedRows.add(data.get(startIndex + i));
+                                            failedRows.add(validData.get(startIndex + i));
                                         } else {
                                             successCount++;
                                         }
@@ -1175,7 +1265,7 @@ public class DataGenerateService {
                                     }
                                 } else {
                                     // 如果不是自增主键，从数据中获取主键值
-                                    for (Map<String, Object> row : data) {
+                                    for (Map<String, Object> row : validData) {
                                         if (row.containsKey(primaryKeyColumn)) {
                                             generatedKeys.add(row.get(primaryKeyColumn));
                                         }
@@ -1322,182 +1412,99 @@ public class DataGenerateService {
             ObjectNode fieldNode = objectMapper.createObjectNode();
             ObjectNode paramsNode = objectMapper.createObjectNode();
             
-            // 根据字段类型生成不同的模板
-            switch (dataType.toUpperCase()) {
-                case "VARCHAR":
-                case "CHAR":
-                case "TEXT":
-                    fieldNode.put("type", "string");
+            // 获取字段的元数据信息
+            String columnComment = columnInfo.get("COLUMN_COMMENT");
+            String columnType = columnInfo.get("COLUMN_TYPE");
+            String maxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
+            String isNullable = columnInfo.get("IS_NULLABLE");
+            String columnKey = columnInfo.get("COLUMN_KEY");
+            String numericPrecision = columnInfo.get("NUMERIC_PRECISION");
+            String numericScale = columnInfo.get("NUMERIC_SCALE");
+            
+            // 根据字段类型和元数据动态生成模板
+            switch (dataType.toLowerCase()) {
+                case "varchar":
+                case "char":
+                case "text":
+                    // 根据字段注释和名称推断数据类型
+                    String fieldNameLower = columnName.toLowerCase();
+                    String commentLower = columnComment != null ? columnComment.toLowerCase() : "";
                     
-                    // 检查是否是特殊字段
-                    if (columnName.toLowerCase().contains("email")) {
-                        // 生成邮箱格式
-                        paramsNode.put("pattern", "${string:user[a-z0-9]{5}}_${random:1000-9999}_${string:[a-z0-9]{4}}@example.com");
-                    } else if (columnName.toLowerCase().contains("phone") || columnName.toLowerCase().contains("mobile")) {
-                        // 生成手机号格式
-                        paramsNode.put("pattern", "1${random:3-9}${string:[0-9]{9}}");
-                    } else if (columnName.toLowerCase().contains("name")) {
-                        // 生成姓名格式
-                        if (columnName.toLowerCase().contains("first")) {
-                            paramsNode.put("pattern", "${enum:John|Mary|David|Lisa|Michael|Sarah}");
-                        } else if (columnName.toLowerCase().contains("last")) {
-                            paramsNode.put("pattern", "${enum:Smith|Johnson|Williams|Brown|Jones|Miller}");
-                        } else {
-                            paramsNode.put("pattern", "${enum:John Smith|Mary Johnson|David Williams|Lisa Brown|Michael Jones|Sarah Miller}");
+                    // 从注释中提取数据类型提示
+                    String dataTypeHint = inferDataTypeFromComment(commentLower);
+                    if (dataTypeHint != null) {
+                        fieldNode.put("type", dataTypeHint);
+                    } else if (isEnumField(columnType, columnComment)) {
+                        fieldNode.put("type", "enum");
+                        Set<String> enumValues = extractEnumValues(columnType, columnComment);
+                        if (!enumValues.isEmpty()) {
+                            ArrayNode valuesNode = objectMapper.createArrayNode();
+                            enumValues.forEach(valuesNode::add);
+                            paramsNode.set("values", valuesNode);
                         }
-                    } else if (columnName.toLowerCase().contains("address")) {
-                        // 生成地址格式
-                        paramsNode.put("pattern", "${random:1-999} ${enum:Main|Oak|Pine|Maple|Cedar} ${enum:Street|Avenue|Road|Boulevard|Lane}");
-                    } else if (columnName.toLowerCase().contains("city")) {
-                        // 生成城市格式
-                        paramsNode.put("pattern", "${enum:New York|Los Angeles|Chicago|Houston|Phoenix|Philadelphia}");
-                    } else if (columnName.toLowerCase().contains("state")) {
-                        // 生成州格式
-                        paramsNode.put("pattern", "${enum:CA|NY|TX|FL|IL|PA}");
-                    } else if (columnName.toLowerCase().contains("zip") || columnName.toLowerCase().contains("postal")) {
-                        // 生成邮编格式
-                        paramsNode.put("pattern", "${string:[0-9]{5}}");
-                    } else if (columnName.toLowerCase().contains("country")) {
-                        // 生成国家格式
-                        paramsNode.put("pattern", "${enum:USA|Canada|UK|Australia|Germany|France}");
-                    } else if (columnName.toLowerCase().contains("url") || columnName.toLowerCase().contains("website")) {
-                        // 生成URL格式
-                        paramsNode.put("pattern", "https://www.${string:[a-z]{5,10}}.com");
-                    } else if (columnName.toLowerCase().contains("description") || columnName.toLowerCase().contains("comment")) {
-                        // 生成描述格式
-                        paramsNode.put("pattern", "This is a sample ${enum:description|comment|text} for ${enum:testing|demonstration|example} purposes.");
                     } else {
-                        // 默认字符串格式
-                        String maxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
-                        int length = maxLength != null ? Math.min(Integer.parseInt(maxLength), 10) : 10;
-                        paramsNode.put("pattern", "${string:[a-zA-Z0-9]{" + length + "}}");
-                    }
-                    break;
-                    
-                case "INT":
-                case "BIGINT":
-                case "SMALLINT":
-                case "TINYINT":
-                case "MEDIUMINT":
-                    fieldNode.put("type", "random");
-                    
-                    // 检查是否是特殊字段
-                    if (columnName.toLowerCase().contains("age")) {
-                        // 生成年龄范围
-                        paramsNode.put("min", 18);
-                        paramsNode.put("max", 80);
-                    } else if (columnName.toLowerCase().contains("year")) {
-                        // 生成年份范围
-                        paramsNode.put("min", 2000);
-                        paramsNode.put("max", 2023);
-                    } else if (columnName.toLowerCase().contains("quantity") || columnName.toLowerCase().contains("count")) {
-                        // 生成数量范围
-                        paramsNode.put("min", 1);
-                        paramsNode.put("max", 100);
-                    } else if (columnName.toLowerCase().contains("price") || columnName.toLowerCase().contains("amount")) {
-                        // 生成价格范围
-                        paramsNode.put("min", 1);
-                        paramsNode.put("max", 1000);
-                        paramsNode.put("decimal", 2);
-                    } else if (columnName.equals("id") || columnName.endsWith("_id")) {
-                        // 生成ID范围
-                        long startId = currentMaxId != null ? currentMaxId + 1 : 1;
-                        paramsNode.put("min", startId);
-                        paramsNode.put("max", startId + 1000);
-                    } else {
-                        // 默认数字范围
-                        paramsNode.put("min", 1);
-                        paramsNode.put("max", 1000);
-                    }
-                    paramsNode.put("integer", true);
-                    break;
-                    
-                case "DECIMAL":
-                case "FLOAT":
-                case "DOUBLE":
-                    fieldNode.put("type", "random");
-                    
-                    // 检查是否是特殊字段
-                    if (columnName.toLowerCase().contains("price") || columnName.toLowerCase().contains("amount")) {
-                        // 生成价格范围
-                        paramsNode.put("min", 1);
-                        paramsNode.put("max", 1000);
-                        paramsNode.put("decimal", 2);
-                    } else if (columnName.toLowerCase().contains("rate") || columnName.toLowerCase().contains("percentage")) {
-                        // 生成比率范围
-                        paramsNode.put("min", 0);
-                        paramsNode.put("max", 1);
-                        paramsNode.put("decimal", 2);
-                    } else {
-                        // 默认小数范围
-                        paramsNode.put("min", 1);
-                        paramsNode.put("max", 1000);
-                        paramsNode.put("decimal", 2);
-                    }
-                    break;
-                    
-                case "DATE":
-                    fieldNode.put("type", "date");
-                    paramsNode.put("format", "yyyy-MM-dd");
-                    paramsNode.put("min", "2020-01-01");
-                    paramsNode.put("max", "2023-12-31");
-                    break;
-                    
-                case "DATETIME":
-                case "TIMESTAMP":
-                    fieldNode.put("type", "date");
-                    paramsNode.put("format", "yyyy-MM-dd HH:mm:ss");
-                    paramsNode.put("min", "2020-01-01 00:00:00");
-                    paramsNode.put("max", "2023-12-31 23:59:59");
-                    break;
-                    
-                case "TIME":
-                    fieldNode.put("type", "date");
-                    paramsNode.put("format", "HH:mm:ss");
-                    paramsNode.put("min", "00:00:00");
-                    paramsNode.put("max", "23:59:59");
-                    break;
-                    
-                case "BOOLEAN":
-                case "BIT":
-                    fieldNode.put("type", "enum");
-                    ArrayNode valuesNode = objectMapper.createArrayNode();
-                    valuesNode.add(true);
-                    valuesNode.add(false);
-                    paramsNode.set("values", valuesNode);
-                    break;
-                    
-                case "ENUM":
-                    fieldNode.put("type", "enum");
-                    String columnType = columnInfo.get("COLUMN_TYPE");
-                    if (columnType != null && columnType.startsWith("enum(")) {
-                        // 解析ENUM类型的值
-                        String enumValues = columnType.substring(5, columnType.length() - 1);
-                        String[] values = enumValues.split(",");
-                        ArrayNode enumNode = objectMapper.createArrayNode();
-                        for (String value : values) {
-                            // 去除引号
-                            value = value.trim();
-                            if (value.startsWith("'") && value.endsWith("'")) {
-                                value = value.substring(1, value.length() - 1);
-                            }
-                            enumNode.add(value);
+                        fieldNode.put("type", "string");
+                        if (maxLength != null) {
+                            paramsNode.put("length", Math.min(Integer.parseInt(maxLength), 20));
                         }
-                        paramsNode.set("values", enumNode);
+                    }
+                    break;
+                    
+                case "bigint":
+                case "int":
+                case "integer":
+                case "tinyint":
+                case "smallint":
+                case "mediumint":
+                    // 检查是否是外键
+                    String referencedTable = columnInfo.get("REFERENCED_TABLE");
+                    if (referencedTable != null) {
+                        fieldNode.put("type", "foreignKey");
+                        paramsNode.put("table", referencedTable);
                     } else {
-                        // 默认ENUM值
-                        ArrayNode defaultEnumNode = objectMapper.createArrayNode();
-                        defaultEnumNode.add("value1");
-                        defaultEnumNode.add("value2");
-                        defaultEnumNode.add("value3");
-                        paramsNode.set("values", defaultEnumNode);
+                        fieldNode.put("type", "random");
+                        paramsNode.put("min", 1);
+                        paramsNode.put("max", 1000);
+                        paramsNode.put("integer", true);
+                    }
+                    break;
+                    
+                case "decimal":
+                case "float":
+                case "double":
+                    fieldNode.put("type", "random");
+                    setDecimalRange(paramsNode, columnName, columnComment, numericPrecision, numericScale);
+                    break;
+                    
+                case "date":
+                    fieldNode.put("type", "date");
+                    setDateRange(paramsNode, "yyyy-MM-dd", columnComment);
+                    break;
+                    
+                case "datetime":
+                case "timestamp":
+                    fieldNode.put("type", "date");
+                    setDateRange(paramsNode, "yyyy-MM-dd HH:mm:ss", columnComment);
+                    break;
+                    
+                case "time":
+                    fieldNode.put("type", "date");
+                    setDateRange(paramsNode, "HH:mm:ss", columnComment);
+                    break;
+                    
+                case "enum":
+                    fieldNode.put("type", "enum");
+                    Set<String> enumValues = extractEnumValues(columnType, columnComment);
+                    if (!enumValues.isEmpty()) {
+                        ArrayNode valuesNode = objectMapper.createArrayNode();
+                        enumValues.forEach(valuesNode::add);
+                        paramsNode.set("values", valuesNode);
                     }
                     break;
                     
                 default:
-                    // 对于其他类型，使用字符串类型
                     fieldNode.put("type", "string");
-                    paramsNode.put("pattern", "${string:[a-zA-Z0-9]{10}}");
+                    paramsNode.put("length", 10);
                     break;
             }
             
@@ -1511,6 +1518,225 @@ public class DataGenerateService {
             log.error("生成默认模板失败: {}", e.getMessage());
             return "{}";
         }
+    }
+    
+    /**
+     * 从注释中推断数据类型
+     */
+    private String inferDataTypeFromComment(String comment) {
+        if (comment == null || comment.isEmpty()) {
+            return null;
+        }
+        
+        Map<String, String[]> typeKeywords = new HashMap<>();
+        typeKeywords.put("phone", new String[]{"电话", "手机", "联系方式", "phone", "mobile", "tel"});
+        typeKeywords.put("address", new String[]{"地址", "位置", "address", "location"});
+        typeKeywords.put("name", new String[]{"名称", "姓名", "用户名", "name", "username"});
+        typeKeywords.put("email", new String[]{"邮箱", "email", "mail"});
+        typeKeywords.put("url", new String[]{"网址", "链接", "url", "link", "website"});
+        
+        for (Map.Entry<String, String[]> entry : typeKeywords.entrySet()) {
+            for (String keyword : entry.getValue()) {
+                if (comment.contains(keyword)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 判断是否是枚举字段
+     */
+    private boolean isEnumField(String columnType, String comment) {
+        if (columnType != null && columnType.startsWith("enum(")) {
+            return true;
+        }
+        
+        if (comment != null && !comment.isEmpty()) {
+            return comment.contains("状态") || comment.contains("类型") || 
+                   comment.contains("标志") || comment.contains("枚举") ||
+                   comment.contains("status") || comment.contains("type") ||
+                   comment.contains("flag") || comment.contains("enum");
+        }
+        
+        return false;
+    }
+    
+    /**
+     * 提取枚举值
+     */
+    private Set<String> extractEnumValues(String columnType, String comment) {
+        Set<String> values = new HashSet<>();
+        
+        // 从字段类型中提取
+        if (columnType != null && columnType.startsWith("enum(")) {
+            values.addAll(extractEnumValuesFromType(columnType));
+        }
+        
+        // 从注释中提取
+        if (comment != null && !comment.isEmpty()) {
+            values.addAll(extractEnumValuesFromComment(comment));
+        }
+        
+        // 如果没有找到枚举值，提供默认值
+        if (values.isEmpty()) {
+            values.add("1");
+            values.add("0");
+        }
+        
+        return values;
+    }
+    
+    /**
+     * 设置数值范围
+     */
+    private void setNumberRange(ObjectNode paramsNode, String columnName, String comment, String columnType) {
+        int min = 1;
+        int max = 1000;
+        
+        // 从注释中提取范围信息
+        if (comment != null && !comment.isEmpty()) {
+            // 尝试从注释中提取范围，例如：范围(1-100)或range[1,100]
+            Pattern pattern = Pattern.compile("(?:范围|range)[\\(\\[](\\d+)[-~,](\\d+)[\\)\\]]");
+            Matcher matcher = pattern.matcher(comment);
+            if (matcher.find()) {
+                try {
+                    min = Integer.parseInt(matcher.group(1));
+                    max = Integer.parseInt(matcher.group(2));
+                } catch (NumberFormatException e) {
+                    log.warn("解析注释中的范围失败: {}", e.getMessage());
+                }
+            }
+        }
+        
+        paramsNode.put("min", min);
+        paramsNode.put("max", max);
+    }
+    
+    /**
+     * 设置小数范围
+     */
+    private void setDecimalRange(ObjectNode paramsNode, String columnName, String comment, 
+                               String numericPrecision, String numericScale) {
+        double min = 0;
+        double max = 1000;
+        int decimals = 2;
+        
+        // 使用数据库定义的精度
+        if (numericScale != null) {
+            try {
+                decimals = Integer.parseInt(numericScale);
+            } catch (NumberFormatException e) {
+                log.warn("解析小数位数失败: {}", e.getMessage());
+            }
+        }
+        
+        // 从注释中提取范围信息
+        if (comment != null && !comment.isEmpty()) {
+            Pattern pattern = Pattern.compile("(?:范围|range)[\\(\\[](\\d+(?:\\.\\d+)?)[,~-](\\d+(?:\\.\\d+)?)[\\)\\]]");
+            Matcher matcher = pattern.matcher(comment);
+            if (matcher.find()) {
+                try {
+                    min = Double.parseDouble(matcher.group(1));
+                    max = Double.parseDouble(matcher.group(2));
+                } catch (NumberFormatException e) {
+                    log.warn("解析注释中的范围失败: {}", e.getMessage());
+                }
+            }
+        }
+        
+        paramsNode.put("min", min);
+        paramsNode.put("max", max);
+        paramsNode.put("integer", false);
+    }
+    
+    /**
+     * 设置日期范围
+     */
+    private void setDateRange(ObjectNode paramsNode, String format, String comment) {
+        String min = "2020-01-01";
+        String max = "2024-12-31";
+        
+        if (format.contains("HH:mm:ss")) {
+            if (format.equals("HH:mm:ss")) {
+                min = "00:00:00";
+                max = "23:59:59";
+            } else {
+                min += " 00:00:00";
+                max += " 23:59:59";
+            }
+        }
+        
+        // 从注释中提取日期范围
+        if (comment != null && !comment.isEmpty()) {
+            Pattern pattern = Pattern.compile("(?:日期范围|date range)[\\(\\[](\\d{4}-\\d{2}-\\d{2})[,~-](\\d{4}-\\d{2}-\\d{2})[\\)\\]]");
+            Matcher matcher = pattern.matcher(comment);
+            if (matcher.find()) {
+                min = matcher.group(1);
+                max = matcher.group(2);
+                if (format.contains("HH:mm:ss") && !format.equals("HH:mm:ss")) {
+                    min += " 00:00:00";
+                    max += " 23:59:59";
+                }
+            }
+        }
+        
+        paramsNode.put("format", format);
+        paramsNode.put("min", min);
+        paramsNode.put("max", max);
+    }
+
+    /**
+     * 检查字符串是否包含任何关键词
+     */
+    private boolean containsAnyKeyword(String fieldName, String comment, String... keywords) {
+        for (String keyword : keywords) {
+            if (fieldName.contains(keyword) || comment.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * 从注释中提取可能的枚举值
+     */
+    private Set<String> extractEnumValuesFromComment(String comment) {
+        Set<String> values = new HashSet<>();
+        if (comment != null && !comment.isEmpty()) {
+            // 尝试从注释中提取枚举值，假设它们用逗号、分号或其他分隔符分隔
+            String[] possibleValues = comment.split("[,;|]");
+            for (String value : possibleValues) {
+                value = value.trim();
+                if (!value.isEmpty()) {
+                    values.add(value);
+                }
+            }
+        }
+        return values;
+    }
+    
+    /**
+     * 从字段类型中提取枚举值
+     */
+    private Set<String> extractEnumValuesFromType(String columnType) {
+        Set<String> values = new HashSet<>();
+        if (columnType != null && columnType.startsWith("enum(") && columnType.endsWith(")")) {
+            String enumValues = columnType.substring(5, columnType.length() - 1);
+            String[] rawValues = enumValues.split(",");
+            for (String value : rawValues) {
+                value = value.trim();
+                if (value.startsWith("'") && value.endsWith("'")) {
+                    value = value.substring(1, value.length() - 1);
+                }
+                if (!value.isEmpty()) {
+                    values.add(value);
+                }
+            }
+        }
+        return values;
     }
 
     /**
@@ -2030,7 +2256,7 @@ public class DataGenerateService {
     /**
      * 获取有效的外键值
      */
-    private Object getValidForeignKeyValue(String referencedTable, String referencedColumn) {
+    public static Object getValidForeignKeyValue(String referencedTable, String referencedColumn) {
         try {
             // 获取当前数据源
             DataSource dataSource = getCurrentDataSource();
@@ -2120,12 +2346,9 @@ public class DataGenerateService {
     /**
      * 获取当前数据源
      */
-    private DataSource getCurrentDataSource() {
-        // 这里需要根据实际情况获取当前正在处理的数据源
-        // 由于我们没有在类中保存当前数据源的引用，这里使用一个临时解决方案
+    private static DataSource getCurrentDataSource() {
         try {
-            // 尝试从数据库中获取第一个可用的数据源
-            return dataSourceService.list().stream()
+            return staticDataSourceService.list().stream()
                     .filter(ds -> ds.getDeleted() == 0)
                     .findFirst()
                     .orElse(null);
@@ -2138,18 +2361,33 @@ public class DataGenerateService {
     /**
      * 外键信息类
      */
+    @Data
     private static class ForeignKeyInfo {
-        String columnName;
-        String referencedTable;
-        String referencedColumn;
+        private String columnName;
+        private String referencedTable;
+        private String referencedColumn;
     }
 
     /**
      * 生成默认值
      */
     private Object generateDefaultValue(Map<String, String> columnInfo) {
+        if (columnInfo == null) {
+            log.warn("列信息为空,返回空字符串");
+            return "";
+        }
+
         String dataType = columnInfo.get("DATA_TYPE");
+        if (dataType == null) {
+            log.warn("数据类型为空,返回空字符串");
+            return "";
+        }
+
         String columnName = columnInfo.get("COLUMN_NAME");
+        if (columnName == null) {
+            log.warn("列名为空,返回空字符串");
+            return "";
+        }
         
         // 特殊处理user_id字段
         if ("user_id".equals(columnName)) {
@@ -2186,12 +2424,16 @@ public class DataGenerateService {
             // 确保不超过字段长度限制
             String maxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
             if (maxLength != null) {
-                int limit = Integer.parseInt(maxLength);
-                if (uniqueUsername.length() > limit) {
-                    uniqueUsername = "u" + System.nanoTime() % 10000;
+                try {
+                    int limit = Integer.parseInt(maxLength);
                     if (uniqueUsername.length() > limit) {
-                        uniqueUsername = "u" + ThreadLocalRandom.current().nextInt(1, limit);
+                        uniqueUsername = "u" + System.nanoTime() % 10000;
+                        if (uniqueUsername.length() > limit) {
+                            uniqueUsername = "u" + ThreadLocalRandom.current().nextInt(1, limit);
+                        }
                     }
+                } catch (NumberFormatException e) {
+                    log.warn("解析CHARACTER_MAXIMUM_LENGTH失败: {}", e.getMessage());
                 }
             }
             
@@ -2220,9 +2462,13 @@ public class DataGenerateService {
                     // 确保不超过字段长度限制
                     String maxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
                     if (maxLength != null) {
-                        int limit = Integer.parseInt(maxLength);
-                        if (uniqueValue.length() > limit) {
-                            uniqueValue = uniqueValue.substring(0, limit);
+                        try {
+                            int limit = Integer.parseInt(maxLength);
+                            if (uniqueValue.length() > limit) {
+                                uniqueValue = uniqueValue.substring(0, limit);
+                            }
+                        } catch (NumberFormatException e) {
+                            log.warn("解析CHARACTER_MAXIMUM_LENGTH失败: {}", e.getMessage());
                         }
                     }
                     return uniqueValue;
@@ -2416,5 +2662,197 @@ public class DataGenerateService {
         }
         
         // ... existing code ...
+    }
+
+    /**
+     * 为单个字段生成模板
+     */
+    private ObjectNode generateFieldTemplate(String columnName, Map<String, String> columnInfo) {
+        String dataType = columnInfo.get("DATA_TYPE");
+        if (dataType == null) {
+            return null;
+        }
+
+        ObjectNode fieldNode = objectMapper.createObjectNode();
+        ObjectNode paramsNode = objectMapper.createObjectNode();
+
+        // 获取字段的元数据信息
+        String columnComment = columnInfo.get("COLUMN_COMMENT");
+        String columnType = columnInfo.get("COLUMN_TYPE");
+        String maxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
+        String numericPrecision = columnInfo.get("NUMERIC_PRECISION");
+        String numericScale = columnInfo.get("NUMERIC_SCALE");
+        String isNullable = columnInfo.get("IS_NULLABLE");
+        String columnKey = columnInfo.get("COLUMN_KEY");
+        String columnDefault = columnInfo.get("COLUMN_DEFAULT");
+
+        // 检查是否是外键
+        String referencedTable = columnInfo.get("REFERENCED_TABLE");
+        if (referencedTable != null) {
+            fieldNode.put("type", "foreignKey");
+            paramsNode.put("table", referencedTable);
+            fieldNode.set("params", paramsNode);
+            return fieldNode;
+        }
+
+        // 检查是否是枚举类型
+        if (columnType != null && columnType.startsWith("enum(")) {
+            fieldNode.put("type", "enum");
+            Set<String> enumValues = extractEnumValues(columnType, columnComment);
+            if (!enumValues.isEmpty()) {
+                ArrayNode valuesNode = objectMapper.createArrayNode();
+                enumValues.forEach(valuesNode::add);
+                paramsNode.set("values", valuesNode);
+            }
+            fieldNode.set("params", paramsNode);
+            return fieldNode;
+        }
+
+        // 根据MySQL数据类型设置生成规则
+        switch (dataType.toLowerCase()) {
+            case "bit":
+                fieldNode.put("type", "random");
+                paramsNode.put("min", 0);
+                paramsNode.put("max", 1);
+                paramsNode.put("integer", true);
+                break;
+
+            case "tinyint":
+                fieldNode.put("type", "random");
+                paramsNode.put("min", -128);
+                paramsNode.put("max", 127);
+                paramsNode.put("integer", true);
+                break;
+
+            case "smallint":
+                fieldNode.put("type", "random");
+                paramsNode.put("min", -32768);
+                paramsNode.put("max", 32767);
+                paramsNode.put("integer", true);
+                break;
+
+            case "mediumint":
+                fieldNode.put("type", "random");
+                paramsNode.put("min", -8388608);
+                paramsNode.put("max", 8388607);
+                paramsNode.put("integer", true);
+                break;
+
+            case "int":
+            case "integer":
+                fieldNode.put("type", "random");
+                paramsNode.put("min", 1);
+                paramsNode.put("max", 1000);
+                paramsNode.put("integer", true);
+                break;
+
+            case "bigint":
+                fieldNode.put("type", "random");
+                paramsNode.put("min", 1);
+                paramsNode.put("max", 1000);
+                paramsNode.put("integer", true);
+                break;
+
+            case "decimal":
+            case "float":
+            case "double":
+                fieldNode.put("type", "random");
+                setDecimalRange(paramsNode, columnName, columnComment, numericPrecision, numericScale);
+                break;
+
+            case "date":
+                fieldNode.put("type", "date");
+                setDateRange(paramsNode, "yyyy-MM-dd", columnComment);
+                break;
+
+            case "datetime":
+            case "timestamp":
+                fieldNode.put("type", "date");
+                setDateRange(paramsNode, "yyyy-MM-dd HH:mm:ss", columnComment);
+                break;
+
+            case "time":
+                fieldNode.put("type", "date");
+                setDateRange(paramsNode, "HH:mm:ss", columnComment);
+                break;
+
+            case "year":
+                fieldNode.put("type", "date");
+                setDateRange(paramsNode, "yyyy", columnComment);
+                break;
+
+            case "char":
+            case "varchar":
+            case "tinytext":
+            case "text":
+            case "mediumtext":
+            case "longtext":
+                fieldNode.put("type", "string");
+                // 如果有最大长度限制，使用它
+                if (maxLength != null) {
+                    paramsNode.put("length", Math.min(Integer.parseInt(maxLength), 20));
+                } else {
+                    paramsNode.put("length", 20); // 默认长度
+                }
+                break;
+
+            case "binary":
+            case "varbinary":
+            case "tinyblob":
+            case "blob":
+            case "mediumblob":
+            case "longblob":
+                fieldNode.put("type", "string");
+                paramsNode.put("length", 10);
+                break;
+
+            case "json":
+                fieldNode.put("type", "string");
+                paramsNode.put("pattern", "{}");
+                break;
+
+            default:
+                fieldNode.put("type", "string");
+                paramsNode.put("length", 10);
+                break;
+        }
+
+        fieldNode.set("params", paramsNode);
+        return fieldNode;
+    }
+
+    /**
+     * 自动从数据库元数据生成模板
+     */
+    private String generateTemplateFromMetadata(DataSource dataSource, String tableName) {
+        try (Connection conn = getConnection(dataSource)) {
+            Map<String, Map<String, String>> tableColumns = getTableDefinition(conn, tableName);
+            Map<String, ForeignKeyInfo> foreignKeys = getForeignKeyInfo(tableName);
+            ObjectNode template = objectMapper.createObjectNode();
+
+            for (Map.Entry<String, Map<String, String>> entry : tableColumns.entrySet()) {
+                String columnName = entry.getKey();
+                Map<String, String> columnInfo = entry.getValue();
+
+                // 如果是外键字段
+                if (foreignKeys.containsKey(columnName)) {
+                    ForeignKeyInfo fkInfo = foreignKeys.get(columnName);
+                    ObjectNode fieldNode = objectMapper.createObjectNode();
+                    fieldNode.put("type", "foreignKey");
+                    fieldNode.put("referencedTable", fkInfo.getReferencedTable());
+                    fieldNode.put("referencedColumn", fkInfo.getReferencedColumn());
+                    template.set(columnName, fieldNode);
+                    continue;
+                }
+
+                // 处理其他字段类型
+                // ... existing code ...
+            }
+
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(template);
+        } catch (Exception e) {
+            log.error("生成模板时发生错误: {}", e.getMessage(), e);
+            throw new RuntimeException("生成模板失败: " + e.getMessage());
+        }
     }
 } 

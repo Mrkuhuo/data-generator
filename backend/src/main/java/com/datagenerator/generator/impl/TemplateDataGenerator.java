@@ -3,10 +3,13 @@ package com.datagenerator.generator.impl;
 import com.datagenerator.generator.DataGenerator;
 import com.datagenerator.generator.rule.DataRule;
 import com.datagenerator.generator.rule.DataRuleFactory;
+import com.datagenerator.service.DataGenerateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 
@@ -132,5 +135,25 @@ public class TemplateDataGenerator implements DataGenerator {
     @Override
     public List<String> getFields() {
         return fields;
+    }
+
+    private Object generateValue(String fieldName, JsonNode fieldConfig) {
+        String type = fieldConfig.path("type").asText();
+        ObjectNode params = (ObjectNode) fieldConfig.path("params");
+
+        try {
+            switch (type.toLowerCase()) {
+                case "foreignkey":
+                    String referencedTable = fieldConfig.path("referencedTable").asText();
+                    String referencedColumn = fieldConfig.path("referencedColumn").asText();
+                    return DataGenerateService.getValidForeignKeyValue(referencedTable, referencedColumn);
+                default:
+                    // ... existing code ...
+                    return null; // Placeholder return, actual implementation needed
+            }
+        } catch (Exception e) {
+            log.error("生成字段 {} 的值失败: {}", fieldName, e.getMessage());
+            throw new IllegalArgumentException("创建字段 " + fieldName + " 的规则失败: " + e.getMessage());
+        }
     }
 } 
