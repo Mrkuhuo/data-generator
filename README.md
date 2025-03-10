@@ -396,3 +396,162 @@ docker-compose logs kafka
    - 确认后端服务是否正常运行
    - 检查前端配置中的API地址是否正确
    - 检查是否存在跨域问题
+
+# 数据生成器项目部署文档
+
+## 项目结构
+
+```
+data-generator/
+├── backend/                # 后端项目目录
+│   ├── src/               # 源代码
+│   ├── pom.xml           # Maven配置文件
+│   └── Dockerfile        # 后端Docker构建文件
+├── frontend/              # 前端项目目录
+│   ├── src/              # 源代码
+│   ├── package.json      # npm配置文件
+│   ├── nginx.conf        # nginx配置文件
+│   └── Dockerfile        # 前端Docker构建文件
+├── docker-compose.yml     # Docker Compose配置文件
+├── deploy.sh             # 一键部署脚本
+└── README.md             # 项目说明文档
+```
+
+## 环境要求
+
+- Docker 20.10.0+
+- Docker Compose 2.0.0+
+- 操作系统：Linux/MacOS/Windows
+- 内存：至少4GB RAM
+- 磁盘空间：至少10GB可用空间
+
+## 快速开始
+
+1. 克隆项目：
+```bash
+git clone <项目地址>
+cd data-generator
+```
+
+2. 运行部署脚本：
+```bash
+chmod +x deploy.sh  # 给脚本添加执行权限（Linux/MacOS）
+./deploy.sh         # 运行部署脚本
+```
+
+3. 访问应用：
+- 前端界面：http://localhost
+- 后端API：http://localhost:8080
+- 数据库：localhost:3306
+
+## 配置说明
+
+### 数据库配置
+- 数据库：MySQL 8.0
+- 用户名：data_generator
+- 密码：data_generator
+- 数据库名：data_generator
+
+### 端口配置
+- 前端：80
+- 后端：8080
+- MySQL：3306
+
+## 目录说明
+
+### 后端项目
+- `backend/src/`: 后端源代码目录
+- `backend/pom.xml`: Maven项目配置文件
+- `backend/Dockerfile`: 后端Docker镜像构建文件
+
+### 前端项目
+- `frontend/src/`: 前端源代码目录
+- `frontend/package.json`: npm项目配置文件
+- `frontend/nginx.conf`: nginx服务器配置文件
+- `frontend/Dockerfile`: 前端Docker镜像构建文件
+
+## 部署说明
+
+### 手动部署步骤
+
+1. 构建镜像：
+```bash
+docker-compose build
+```
+
+2. 启动服务：
+```bash
+docker-compose up -d
+```
+
+3. 查看服务状态：
+```bash
+docker-compose ps
+```
+
+4. 查看服务日志：
+```bash
+docker-compose logs
+```
+
+### 停止服务
+
+```bash
+docker-compose down
+```
+
+## 常见问题
+
+1. 端口冲突
+- 问题：服务启动失败，提示端口被占用
+- 解决：修改`docker-compose.yml`中的端口映射配置
+
+2. 数据库连接失败
+- 问题：后端服务无法连接到数据库
+- 解决：检查数据库配置和网络连接
+
+3. 前端访问后端API失败
+- 问题：前端页面无法加载数据
+- 解决：检查nginx配置中的代理设置
+
+## 维护和更新
+
+1. 更新应用：
+```bash
+git pull                # 获取最新代码
+./deploy.sh            # 重新部署
+```
+
+2. 查看容器日志：
+```bash
+docker-compose logs -f  # 实时查看所有服务的日志
+docker-compose logs backend  # 查看后端服务日志
+docker-compose logs frontend # 查看前端服务日志
+```
+
+3. 备份数据：
+```bash
+docker exec data-generator-mysql mysqldump -u root -p data_generator > backup.sql
+```
+
+## 技术栈
+
+- 后端：Spring Boot
+- 前端：Vue.js
+- 数据库：MySQL
+- 服务器：Nginx
+- 容器化：Docker & Docker Compose
+
+## 注意事项
+
+1. 生产环境部署
+- 修改数据库密码
+- 配置HTTPS
+- 启用数据库备份
+- 配置监控告警
+
+2. 安全建议
+- 定期更新依赖
+- 限制数据库远程访问
+- 使用安全的密码
+- 配置防火墙规则
