@@ -46,14 +46,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSou
     }
 
     private AdminClient getOrCreateAdminClient(DataSource dataSource) {
-        Long dataSourceId = dataSource.getId();
-        if (dataSourceId == null) {
-            log.info("DataSource ID 不能为 null");
-            // 对于未保存的数据源，使用hashCode作为临时标识
-            dataSourceId = (long) dataSource.hashCode();
-            log.info("使用临时ID进行连接测试: {}", dataSourceId);
-        }
-        return adminClientMap.computeIfAbsent(dataSourceId, id -> {
+        return adminClientMap.computeIfAbsent(dataSource.getId(), id -> {
             Properties props = new Properties();
             props.put("bootstrap.servers", dataSource.getUrl());
             props.put("request.timeout.ms", "5000");
