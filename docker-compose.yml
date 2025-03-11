@@ -1,22 +1,26 @@
-version: '3'
+version: '3.8'
 
 services:
-  # MySQL数据库服务
+  # MySQL服务
   mysql:
     image: mysql:8.0
     container_name: data-generator-mysql
-    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: data_generator
-      MYSQL_USER: datagenerator
-      MYSQL_PASSWORD: datagenerator123
+      MYSQL_USER: data_generator
+      MYSQL_PASSWORD: data_generator
+    volumes:
+      - mysql_data:/var/lib/mysql
     ports:
       - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./backend/src/main/resources/db:/docker-entrypoint-initdb.d
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - data-generator-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Kafka服务
   zookeeper:
@@ -41,29 +45,38 @@ services:
 
   # 后端服务
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: data-generator-backend
-    restart: always
-    ports:
-      - "8888:8888"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/data_generator?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-      SPRING_DATASOURCE_USERNAME: datagenerator
-      SPRING_DATASOURCE_PASSWORD: datagenerator123
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/data_generator?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: data_generator
+      SPRING_DATASOURCE_PASSWORD: data_generator
+    ports:
+      - "8080:8080"
     depends_on:
-      - mysql
-      - kafka
+      mysql:
+        condition: service_healthy
+    networks:
+      - data-generator-network
 
   # 前端服务
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: data-generator-frontend
-    restart: always
     ports:
       - "80:80"
     depends_on:
       - backend
+    networks:
+      - data-generator-network
+
+networks:
+  data-generator-network:
+    driver: bridge
 
 volumes:
-  mysql-data: 
+  mysql_data: 
