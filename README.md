@@ -183,81 +183,73 @@
 在开始使用应用前，需要先创建数据库和相关表结构：
 
 ```sql
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS data_generator DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE TABLE `data_source` (
+                             `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                             `name` varchar(100) NOT NULL COMMENT '数据源名称',
+                             `type` varchar(20) NOT NULL COMMENT '数据源类型',
+                             `url` varchar(500) NOT NULL COMMENT '连接URL',
+                             `username` varchar(100) NOT NULL COMMENT '用户名',
+                             `password` varchar(100) NOT NULL COMMENT '密码',
+                             `driver_class_name` varchar(100) DEFAULT NULL COMMENT '驱动类名',
+                             `description` varchar(500) DEFAULT NULL COMMENT '描述',
+                             `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                             `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                             `deleted` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否删除',
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COMMENT='数据源配置表';
 
--- 使用数据库
-USE data_generator;
+CREATE TABLE `data_task` (
+                           `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                           `name` varchar(100) NOT NULL COMMENT '任务名称',
+                           `data_source_id` bigint(20) NOT NULL COMMENT '数据源ID',
+                           `target_type` varchar(20) NOT NULL COMMENT '目标类型',
+                           `target_name` varchar(5000) NOT NULL COMMENT '目标名称',
+                           `write_mode` varchar(20) NOT NULL COMMENT '写入模式',
+                           `data_format` varchar(20) NOT NULL COMMENT '数据格式',
+                           `template` text COMMENT '数据生成模板',
+                           `batch_size` int(11) NOT NULL DEFAULT '1000' COMMENT '批量大小',
+                           `frequency` int(11) NOT NULL DEFAULT '1' COMMENT '生成频率(秒)',
+                           `concurrent_num` int(11) NOT NULL DEFAULT '1' COMMENT '并发数',
+                           `status` varchar(20) NOT NULL DEFAULT 'STOPPED' COMMENT '任务状态',
+                           `cron_expression` varchar(100) DEFAULT NULL COMMENT '定时任务表达式',
+                           `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                           `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                           `deleted` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否删除',
+                           PRIMARY KEY (`id`),
+                           KEY `data_source_id` (`data_source_id`),
+                           CONSTRAINT `data_task_ibfk_1` FOREIGN KEY (`data_source_id`) REFERENCES `data_source` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COMMENT='数据生成任务表';
 
--- 创建数据源配置表
-CREATE TABLE IF NOT EXISTS `data_source` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name` varchar(100) NOT NULL COMMENT '数据源名称',
-  `type` varchar(50) NOT NULL COMMENT '数据源类型：MYSQL, KAFKA等',
-  `url` varchar(500) NOT NULL COMMENT '连接URL',
-  `username` varchar(100) DEFAULT NULL COMMENT '用户名',
-  `password` varchar(100) DEFAULT NULL COMMENT '密码',
-  `driver_class` varchar(200) DEFAULT NULL COMMENT '驱动类名',
-  `properties` text DEFAULT NULL COMMENT '其他连接属性，JSON格式',
-  `status` tinyint(1) DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据源配置表';
+CREATE TABLE `system_info` (
+                             `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                             `cpu_usage` double DEFAULT NULL COMMENT 'CPU使用率',
+                             `memory_usage` double DEFAULT NULL COMMENT '内存使用率',
+                             `disk_usage` double DEFAULT NULL COMMENT '磁盘使用率',
+                             `jvm_heap_usage` double DEFAULT NULL COMMENT 'JVM堆内存使用率',
+                             `jvm_non_heap_usage` double DEFAULT NULL COMMENT 'JVM非堆内存使用率',
+                             `uptime` bigint(20) DEFAULT NULL COMMENT '系统运行时间(毫秒)',
+                             `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1248 DEFAULT CHARSET=utf8mb4 COMMENT='系统信息表';
 
--- 创建任务配置表
-CREATE TABLE IF NOT EXISTS `task_config` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name` varchar(100) NOT NULL COMMENT '任务名称',
-  `data_source_id` bigint(20) NOT NULL COMMENT '数据源ID',
-  `target_table` varchar(100) DEFAULT NULL COMMENT '目标表名',
-  `topic_name` varchar(100) DEFAULT NULL COMMENT 'Kafka主题名',
-  `batch_size` int(11) DEFAULT 1000 COMMENT '批量大小',
-  `total_count` bigint(20) DEFAULT 0 COMMENT '总记录数',
-  `frequency` int(11) DEFAULT 0 COMMENT '频率(ms)',
-  `write_mode` varchar(20) DEFAULT 'APPEND' COMMENT '写入模式：OVERWRITE, APPEND, UPDATE',
-  `status` varchar(20) DEFAULT 'CREATED' COMMENT '状态：CREATED, RUNNING, PAUSED, COMPLETED, FAILED',
-  `cron_expression` varchar(100) DEFAULT NULL COMMENT 'Cron表达式',
-  `config_json` text DEFAULT NULL COMMENT '配置JSON',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_name` (`name`),
-  KEY `idx_data_source_id` (`data_source_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务配置表';
+CREATE TABLE `task_execution` (
+                                `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                `task_id` bigint(20) NOT NULL COMMENT '任务ID',
+                                `start_time` datetime NOT NULL COMMENT '开始时间',
+                                `end_time` datetime DEFAULT NULL COMMENT '结束时间',
+                                `status` varchar(20) NOT NULL COMMENT '执行状态',
+                                `total_count` bigint(20) NOT NULL DEFAULT '0' COMMENT '总记录数',
+                                `success_count` bigint(20) NOT NULL DEFAULT '0' COMMENT '成功记录数',
+                                `error_count` bigint(20) NOT NULL DEFAULT '0' COMMENT '失败记录数',
+                                `error_message` text COMMENT '错误信息',
+                                `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                `deleted` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否删除',
+                                PRIMARY KEY (`id`),
+                                KEY `task_id` (`task_id`),
+                                CONSTRAINT `task_execution_ibfk_1` FOREIGN KEY (`task_id`) REFERENCES `data_task` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=217 DEFAULT CHARSET=utf8mb4 COMMENT='任务执行记录表';
 
--- 创建任务执行记录表
-CREATE TABLE IF NOT EXISTS `task_execution` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `task_id` bigint(20) NOT NULL COMMENT '任务ID',
-  `start_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '开始时间',
-  `end_time` datetime DEFAULT NULL COMMENT '结束时间',
-  `status` varchar(20) NOT NULL COMMENT '状态：RUNNING, COMPLETED, FAILED',
-  `processed_count` bigint(20) DEFAULT 0 COMMENT '已处理记录数',
-  `error_message` text DEFAULT NULL COMMENT '错误信息',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_task_id` (`task_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务执行记录表';
-
--- 创建字段配置表
-CREATE TABLE IF NOT EXISTS `field_config` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `task_id` bigint(20) NOT NULL COMMENT '任务ID',
-  `field_name` varchar(100) NOT NULL COMMENT '字段名',
-  `field_type` varchar(50) NOT NULL COMMENT '字段类型',
-  `generator_type` varchar(50) NOT NULL COMMENT '生成器类型',
-  `generator_config` text DEFAULT NULL COMMENT '生成器配置，JSON格式',
-  `is_primary_key` tinyint(1) DEFAULT 0 COMMENT '是否主键',
-  `is_nullable` tinyint(1) DEFAULT 1 COMMENT '是否可为空',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_task_field` (`task_id`, `field_name`),
-  KEY `idx_task_id` (`task_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='字段配置表';
 ```
 
 您可以将上述SQL保存为`init.sql`文件，然后执行：
