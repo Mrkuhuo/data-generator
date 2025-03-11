@@ -26,4 +26,21 @@ public class DataSource {
     
     @TableLogic
     private Integer deleted;
+    
+    // 手动添加getter方法，以防Lombok注解未被正确处理
+    public String getUrl() {
+        return url;
+    }
+    
+    public String getUsername() {
+        return username;
+    }
+    
+    public String getPassword() {
+        return password;
+    }
+    
+    public String getName() {
+        return name;
+    }
 } 

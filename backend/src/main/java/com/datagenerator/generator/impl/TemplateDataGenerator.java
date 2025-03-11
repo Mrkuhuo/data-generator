@@ -3,7 +3,7 @@ package com.datagenerator.generator.impl;
 import com.datagenerator.generator.DataGenerator;
 import com.datagenerator.generator.rule.DataRule;
 import com.datagenerator.generator.rule.DataRuleFactory;
-import com.datagenerator.service.DataGenerateService;
+import com.datagenerator.metadata.ForeignKeyMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -14,18 +14,27 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 
 @Slf4j
+@Component
 public class TemplateDataGenerator implements DataGenerator {
     
     private final ObjectMapper objectMapper;
     private final DataRuleFactory ruleFactory;
     private Map<String, DataRule> rules;
     private List<String> fields;
+    private Map<String, ForeignKeyMetadata> foreignKeyMetadataMap;
     
-    public TemplateDataGenerator() {
+    public TemplateDataGenerator(DataRuleFactory ruleFactory) {
         this.objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
-        this.ruleFactory = new DataRuleFactory();
+        this.ruleFactory = ruleFactory;
+        this.rules = new HashMap<>();
+        this.fields = new ArrayList<>();
+        this.foreignKeyMetadataMap = new HashMap<>();
+    }
+    
+    public void setForeignKeyMetadata(Map<String, ForeignKeyMetadata> foreignKeyMetadataMap) {
+        this.foreignKeyMetadataMap = foreignKeyMetadataMap;
     }
     
     @Override
@@ -146,10 +155,20 @@ public class TemplateDataGenerator implements DataGenerator {
                 case "foreignkey":
                     String referencedTable = fieldConfig.path("referencedTable").asText();
                     String referencedColumn = fieldConfig.path("referencedColumn").asText();
-                    return DataGenerateService.getValidForeignKeyValue(referencedTable, referencedColumn);
+                    String key = referencedTable + "." + referencedColumn;
+                    ForeignKeyMetadata fkMetadata = foreignKeyMetadataMap.get(key);
+                    if (fkMetadata == null || fkMetadata.getValidValues().isEmpty()) {
+                        throw new IllegalArgumentException("没有找到有效的外键值: " + key);
+                    }
+                    // 随机选择一个有效的外键值
+                    List<Object> validValues = new ArrayList<>(fkMetadata.getValidValues());
+                    return validValues.get(new Random().nextInt(validValues.size()));
                 default:
-                    // ... existing code ...
-                    return null; // Placeholder return, actual implementation needed
+                    DataRule rule = rules.get(fieldName);
+                    if (rule == null) {
+                        throw new IllegalArgumentException("未知的数据生成规则类型: " + type);
+                    }
+                    return rule.generate();
             }
         } catch (Exception e) {
             log.error("生成字段 {} 的值失败: {}", fieldName, e.getMessage());

@@ -2,9 +2,6 @@ package com.datagenerator.exception;
 
 import com.datagenerator.common.Result;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -25,24 +22,6 @@ public class GlobalExceptionHandler {
     public Result<Void> handleBusinessException(BusinessException e) {
         log.error("业务异常：{}", e.getMessage());
         return Result.error(e.getCode(), e.getMessage());
-    }
-
-    @ExceptionHandler(AccessDeniedException.class)
-    public Result<Void> handleAccessDeniedException(AccessDeniedException e) {
-        log.error("权限不足：{}", e.getMessage());
-        return Result.error(403, "权限不足");
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public Result<Void> handleBadCredentialsException(BadCredentialsException e) {
-        log.error("用户名或密码错误：{}", e.getMessage());
-        return Result.error(401, "用户名或密码错误");
-    }
-
-    @ExceptionHandler(UsernameNotFoundException.class)
-    public Result<Void> handleUsernameNotFoundException(UsernameNotFoundException e) {
-        log.error("用户不存在：{}", e.getMessage());
-        return Result.error(401, "用户不存在");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

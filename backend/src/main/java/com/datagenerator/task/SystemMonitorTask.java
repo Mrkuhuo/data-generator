@@ -1,7 +1,6 @@
 package com.datagenerator.task;
 
 import com.datagenerator.entity.SystemInfo;
-import com.datagenerator.service.SystemAlertRuleService;
 import com.datagenerator.service.SystemInfoService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,9 +14,6 @@ public class SystemMonitorTask {
 
     @Resource
     private SystemInfoService systemInfoService;
-    
-    @Resource
-    private SystemAlertRuleService alertRuleService;
 
     /**
      * 每分钟执行一次系统信息收集
@@ -32,9 +28,6 @@ public class SystemMonitorTask {
                     systemInfo.getCpuUsage(),
                     systemInfo.getMemoryUsage(),
                     systemInfo.getJvmHeapUsage());
-                    
-            // 检查告警规则
-            alertRuleService.checkSystemMetrics(systemInfo);
         } catch (Exception e) {
             log.error("系统信息收集失败", e);
         }

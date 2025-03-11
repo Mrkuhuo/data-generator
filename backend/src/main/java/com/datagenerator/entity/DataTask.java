@@ -34,4 +34,17 @@ public class DataTask {
     
     @TableLogic
     private Integer deleted;
+    
+    // 手动添加getter方法，以防Lombok注解未被正确处理
+    public String getTemplate() {
+        return template;
+    }
+    
+    public String getWriteMode() {
+        return writeMode;
+    }
+    
+    public String getName() {
+        return name;
+    }
 } 

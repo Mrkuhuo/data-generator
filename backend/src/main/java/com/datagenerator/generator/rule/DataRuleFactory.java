@@ -42,6 +42,9 @@ public class DataRuleFactory {
                 case "reference":
                     rule = objectMapper.convertValue(params, ReferenceRule.class);
                     break;
+                case "fixed":
+                    rule = objectMapper.convertValue(params, FixedRule.class);
+                    break;
                 default:
                     log.error("不支持的数据生成规则类型: {}", type);
                     throw new IllegalArgumentException("不支持的数据生成规则类型: " + type);
