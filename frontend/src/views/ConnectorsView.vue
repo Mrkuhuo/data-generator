@@ -2,24 +2,24 @@
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">Connector Center</p>
-        <h2>Configure where synthetic data is tested and delivered.</h2>
+        <p class="eyebrow">连接器中心</p>
+        <h2>配置模拟数据的测试通道与投递目标。</h2>
       </div>
       <div class="page-actions">
-        <button class="button button--ghost" type="button" @click="createQuickstartConnector('file')">File</button>
+        <button class="button button--ghost" type="button" @click="createQuickstartConnector('file')">文件</button>
         <button class="button button--ghost" type="button" @click="createQuickstartConnector('http')">HTTP</button>
         <button class="button button--ghost" type="button" @click="createQuickstartConnector('mysql')">MySQL</button>
         <button class="button button--ghost" type="button" @click="createQuickstartConnector('postgresql')">PostgreSQL</button>
         <button class="button button--ghost" type="button" @click="createQuickstartConnector('kafka')">Kafka</button>
-        <button class="button button--ghost" type="button" @click="loadConnectors">Refresh</button>
+        <button class="button button--ghost" type="button" @click="loadConnectors">刷新</button>
       </div>
     </header>
 
     <section class="workspace-grid">
       <article class="panel form-panel">
         <div>
-          <p class="eyebrow">{{ selectedConnectorId ? "Edit Connector" : "Create Connector" }}</p>
-          <h3>{{ selectedConnectorId ? "Update connector definition" : "New connector definition" }}</h3>
+          <p class="eyebrow">{{ selectedConnectorId ? "编辑连接器" : "新建连接器" }}</p>
+          <h3>{{ selectedConnectorId ? "更新连接器定义" : "创建新的连接器定义" }}</h3>
         </div>
 
         <div
@@ -33,69 +33,71 @@
         <form class="form-grid" @submit.prevent="saveConnector">
           <div class="field">
             <label>
-              <span>Name</span>
-              <input v-model.trim="form.name" type="text" placeholder="Example MySQL Sink" />
+              <span>名称</span>
+              <input v-model.trim="form.name" type="text" placeholder="示例 MySQL 落库连接器" />
             </label>
           </div>
 
           <div class="field field--half">
             <label>
-              <span>Type</span>
+              <span>类型</span>
               <select v-model="form.connectorType">
-                <option v-for="type in connectorTypes" :key="type" :value="type">{{ type }}</option>
+                <option v-for="type in connectorTypes" :key="type" :value="type">{{ labelConnectorType(type) }}</option>
               </select>
             </label>
 
             <label>
-              <span>Role</span>
+              <span>角色</span>
               <select v-model="form.connectorRole">
-                <option v-for="role in connectorRoles" :key="role" :value="role">{{ role }}</option>
+                <option v-for="role in connectorRoles" :key="role" :value="role">{{ labelConnectorRole(role) }}</option>
               </select>
             </label>
           </div>
 
           <div class="field field--half">
             <label>
-              <span>Status</span>
+              <span>状态</span>
               <select v-model="form.status">
-                <option v-for="status in connectorStatuses" :key="status" :value="status">{{ status }}</option>
+                <option v-for="status in connectorStatuses" :key="status" :value="status">{{ labelConnectorStatus(status) }}</option>
               </select>
             </label>
 
             <label>
-              <span>Template</span>
-              <button class="button button--ghost" type="button" @click="applyTemplate(form.connectorType)">Load {{ form.connectorType }} Template</button>
+              <span>模板</span>
+              <button class="button button--ghost" type="button" @click="applyTemplate(form.connectorType)">
+                加载 {{ labelConnectorType(form.connectorType) }} 模板
+              </button>
             </label>
           </div>
 
           <div class="field">
             <label>
-              <span>Description</span>
-              <textarea v-model.trim="form.description" rows="3" placeholder="Describe how this connector will be used." />
+              <span>说明</span>
+              <textarea v-model.trim="form.description" rows="3" placeholder="说明这个连接器的用途和目标环境。" />
             </label>
           </div>
 
           <div class="field">
             <label>
-              <span>Config JSON</span>
+              <span>配置 JSON</span>
               <textarea
                 v-model="form.configJson"
                 class="code-input"
-                placeholder='{"jdbcUrl":"jdbc:mysql://localhost:3306/demo","username":"root","password":"root"}'
+                placeholder='{"jdbcUrl":"jdbc:mysql://localhost:3306/demo","username":"root","password":"123456"}'
               />
             </label>
           </div>
 
           <div class="button-row">
-            <button class="button" type="submit">{{ selectedConnectorId ? "Save Connector" : "Create Connector" }}</button>
-            <button class="button button--ghost" type="button" @click="resetForm">Reset</button>
+            <button class="button" type="submit">{{ selectedConnectorId ? "保存连接器" : "创建连接器" }}</button>
+            <button class="button button--ghost" type="button" @click="resetForm">重置</button>
             <button
               v-if="selectedConnectorId"
               class="button button--ghost"
               type="button"
               @click="runTest(selectedConnectorId)"
             >
-              Test Selected
+              测试当前连接器
             </button>
             <button
               v-if="selectedConnectorId"
@@ -103,7 +105,7 @@
               type="button"
               @click="removeConnector(selectedConnectorId)"
             >
-              Delete
+              删除
             </button>
           </div>
         </form>
@@ -119,30 +121,30 @@
           >
             <div class="panel__row">
               <h3>{{ connector.name }}</h3>
-              <span class="pill">{{ connector.connectorType }}</span>
+              <span class="pill">{{ labelConnectorType(connector.connectorType) }}</span>
             </div>
 
             <div class="meta-grid">
-              <p class="muted">{{ connector.connectorRole }} / {{ connector.status }}</p>
-              <p>{{ connector.description || "No description yet." }}</p>
+              <p class="muted">{{ labelConnectorRole(connector.connectorRole) }} / {{ labelConnectorStatus(connector.status) }}</p>
+              <p>{{ connector.description || "暂无说明。" }}</p>
               <pre class="code-block">{{ connector.configJson }}</pre>
             </div>
 
             <div class="panel__actions">
-              <button class="button" type="button" @click="selectConnector(connector)">Edit</button>
-              <button class="button button--ghost" type="button" @click="runTest(connector.id)">Test</button>
-              <button class="button button--danger" type="button" @click="removeConnector(connector.id)">Delete</button>
+              <button class="button" type="button" @click="selectConnector(connector)">编辑</button>
+              <button class="button button--ghost" type="button" @click="runTest(connector.id)">测试</button>
+              <button class="button button--danger" type="button" @click="removeConnector(connector.id)">删除</button>
             </div>
 
-            <p class="muted">Last test: {{ connector.lastTestStatus || "Not tested" }}</p>
+            <p class="muted">最近测试：{{ labelConnectorProbeStatus(connector.lastTestStatus) }}</p>
             <p v-if="connector.lastTestMessage" class="muted">{{ connector.lastTestMessage }}</p>
             <pre v-if="connector.lastTestDetailsJson" class="code-block">{{ connector.lastTestDetailsJson }}</pre>
           </article>
         </section>
 
         <section v-else class="empty-state">
-          <h3>No connectors yet</h3>
-          <p>Use the quickstart buttons above or create one manually from the form on the left.</p>
+          <h3>还没有连接器</h3>
+          <p>可以使用上方快速创建按钮，也可以在左侧表单中手动创建连接器。</p>
         </section>
       </div>
     </section>
@@ -152,6 +154,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { apiClient, readApiError, type ApiResponse } from "../api/client";
+import { labelConnectorProbeStatus, labelConnectorRole, labelConnectorStatus, labelConnectorType } from "../utils/display";
 
 type FeedbackKind = "success" | "error";
 
@@ -202,7 +205,7 @@ const connectorTemplates: Record<ConnectorType, string> = {
     {
       jdbcUrl: "jdbc:mysql://localhost:3306/demo_sink?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai",
       username: "root",
-      password: "root"
+      password: "123456"
     },
     null,
     2
@@ -263,7 +266,7 @@ function normalizeJson(value: string, label: string) {
   try {
     return JSON.stringify(JSON.parse(value), null, 2);
   } catch (error) {
-    throw new Error(`${label} must be valid JSON`);
+    throw new Error(`${label} 必须是合法的 JSON`);
   }
 }
 
@@ -281,7 +284,7 @@ function resetForm() {
 function applyTemplate(type: ConnectorType) {
   form.configJson = connectorTemplates[type];
   if (!form.name) {
-    form.name = `New ${type} Connector`;
+    form.name = `新建${labelConnectorType(type)}连接器`;
   }
 }
 
@@ -292,7 +295,7 @@ function selectConnector(connector: Connector) {
   form.connectorRole = connector.connectorRole;
   form.status = connector.status;
   form.description = connector.description ?? "";
-  form.configJson = normalizeJson(connector.configJson, "Connector config");
+  form.configJson = normalizeJson(connector.configJson, "连接器配置");
   clearFeedback();
 }
 
@@ -311,7 +314,7 @@ async function loadConnectors() {
     }
   } catch (error) {
     connectors.value = [];
-    setFeedback("error", readApiError(error, "Failed to load connectors"));
+    setFeedback("error", readApiError(error, "加载连接器列表失败"));
   }
 }
 
@@ -319,9 +322,9 @@ async function createQuickstartConnector(type: string) {
   try {
     await apiClient.post(`/connectors/quickstart/${type}`);
     await loadConnectors();
-    setFeedback("success", `${type.toUpperCase()} connector quickstart created`);
+    setFeedback("success", `${labelConnectorType(type.toUpperCase())} 快速连接器已创建`);
   } catch (error) {
-    setFeedback("error", readApiError(error, `Failed to create ${type} connector`));
+    setFeedback("error", readApiError(error, `创建 ${labelConnectorType(type.toUpperCase())} 连接器失败`));
   }
 }
 
@@ -333,20 +336,20 @@ async function saveConnector() {
       connectorRole: form.connectorRole,
       status: form.status,
       description: form.description || null,
-      configJson: normalizeJson(form.configJson, "Connector config")
+      configJson: normalizeJson(form.configJson, "连接器配置")
     };
 
     if (selectedConnectorId.value) {
       await apiClient.put(`/connectors/${selectedConnectorId.value}`, payload);
-      setFeedback("success", "Connector updated");
+      setFeedback("success", "连接器已更新");
     } else {
       await apiClient.post("/connectors", payload);
-      setFeedback("success", "Connector created");
+      setFeedback("success", "连接器已创建");
     }
 
     await loadConnectors();
   } catch (error) {
-    setFeedback("error", readApiError(error, "Failed to save connector"));
+    setFeedback("error", readApiError(error, "保存连接器失败"));
   }
 }
 
@@ -355,10 +358,10 @@ async function runTest(connectorId: number) {
     await apiClient.post(`/connectors/${connectorId}/test`);
     await loadConnectors();
 
-    const connectorName = connectors.value.find((connector) => connector.id === connectorId)?.name ?? "Connector";
-    setFeedback("success", `${connectorName} test finished`);
+    const connectorName = connectors.value.find((connector) => connector.id === connectorId)?.name ?? "连接器";
+    setFeedback("success", `${connectorName} 测试完成`);
   } catch (error) {
-    setFeedback("error", readApiError(error, "Failed to test connector"));
+    setFeedback("error", readApiError(error, "连接器测试失败"));
   }
 }
 
@@ -369,9 +372,9 @@ async function removeConnector(connectorId: number) {
       resetForm();
     }
     await loadConnectors();
-    setFeedback("success", "Connector deleted");
+    setFeedback("success", "连接器已删除");
   } catch (error) {
-    setFeedback("error", readApiError(error, "Failed to delete connector"));
+    setFeedback("error", readApiError(error, "删除连接器失败"));
   }
 }
 

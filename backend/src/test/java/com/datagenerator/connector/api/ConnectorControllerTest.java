@@ -59,7 +59,7 @@ class ConnectorControllerTest {
         mockMvc.perform(post("/api/connectors/quickstart/kafka"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Example Kafka connector created"))
+                .andExpect(jsonPath("$.message").value("示例 Kafka 连接器已创建"))
                 .andExpect(jsonPath("$.data.id").value(21))
                 .andExpect(jsonPath("$.data.connectorType").value("KAFKA"));
     }
@@ -87,7 +87,7 @@ class ConnectorControllerTest {
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Connector test executed"))
+                .andExpect(jsonPath("$.message").value("连接器测试已执行"))
                 .andExpect(jsonPath("$.data.connectorId").value(8))
                 .andExpect(jsonPath("$.data.status").value("SUCCESS"));
     }

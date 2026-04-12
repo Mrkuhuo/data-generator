@@ -13,11 +13,11 @@ const router = createRouter({
       path: "/",
       component: AppShell,
       children: [
-        { path: "", name: "dashboard", component: DashboardView, meta: { title: "Platform Overview" } },
-        { path: "connectors", name: "connectors", component: ConnectorsView, meta: { title: "Connector Center" } },
-        { path: "datasets", name: "datasets", component: DatasetsView, meta: { title: "Dataset Studio" } },
-        { path: "jobs", name: "jobs", component: JobsView, meta: { title: "Job Control" } },
-        { path: "executions", name: "executions", component: ExecutionsView, meta: { title: "Execution Ledger" } }
+        { path: "", name: "dashboard", component: DashboardView, meta: { title: "平台总览" } },
+        { path: "connectors", name: "connectors", component: ConnectorsView, meta: { title: "连接器中心" } },
+        { path: "datasets", name: "datasets", component: DatasetsView, meta: { title: "数据集工作台" } },
+        { path: "jobs", name: "jobs", component: JobsView, meta: { title: "任务控制台" } },
+        { path: "executions", name: "executions", component: ExecutionsView, meta: { title: "执行账本" } }
       ]
     }
   ]
@@ -25,9 +25,8 @@ const router = createRouter({
 
 router.afterEach((to) => {
   if (to.meta.title) {
-    document.title = `${to.meta.title} | Multisource Data Generator`;
+    document.title = `${to.meta.title} | 多数据源模拟数据生成器`;
   }
 });
 
 export default router;
-

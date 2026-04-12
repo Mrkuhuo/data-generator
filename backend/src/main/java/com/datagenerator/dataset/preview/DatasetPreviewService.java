@@ -41,13 +41,13 @@ public class DatasetPreviewService {
 
     public GeneratedDatasetBatch generate(Long datasetId, Integer requestedCount, Long requestedSeed) {
         DatasetDefinition dataset = datasetRepository.findById(datasetId)
-                .orElseThrow(() -> new IllegalArgumentException("Dataset not found: " + datasetId));
+                .orElseThrow(() -> new IllegalArgumentException("未找到数据集：" + datasetId));
         return generate(dataset, requestedCount, requestedSeed);
     }
 
     public GeneratedDatasetBatch generate(DatasetDefinition dataset, Integer requestedCount, Long requestedSeed) {
         if (dataset.getStatus() == DatasetStatus.ARCHIVED) {
-            throw new IllegalArgumentException("Archived datasets cannot be previewed");
+            throw new IllegalArgumentException("已归档的数据集不支持预览");
         }
 
         Map<String, Object> sampleConfig = readJsonObject(dataset.getSampleConfigJson(), "sampleConfigJson");
@@ -61,7 +61,7 @@ public class DatasetPreviewService {
         Map<String, Object> schema = readJsonObject(dataset.getSchemaJson(), "schemaJson");
         Object rootType = schema.getOrDefault("type", "object");
         if (!Objects.equals(rootType, "object")) {
-            throw new IllegalArgumentException("Dataset schema root must be an object");
+            throw new IllegalArgumentException("数据集 schema 根节点必须是 object");
         }
 
         PreviewOptions options = new PreviewOptions(count, seed);
@@ -84,14 +84,14 @@ public class DatasetPreviewService {
     ) {
         Object fieldsObject = node.get("fields");
         if (!(fieldsObject instanceof Map<?, ?> rawFields)) {
-            throw new IllegalArgumentException("Object node must declare fields");
+            throw new IllegalArgumentException("object 节点必须声明 fields");
         }
 
         Map<String, Object> output = currentContext;
         for (Map.Entry<?, ?> entry : rawFields.entrySet()) {
             String fieldName = String.valueOf(entry.getKey());
             if (!(entry.getValue() instanceof Map<?, ?> rawChild)) {
-                throw new IllegalArgumentException("Field " + fieldName + " must be a JSON object");
+                throw new IllegalArgumentException("字段 " + fieldName + " 必须是 JSON 对象");
             }
 
             @SuppressWarnings("unchecked")
@@ -112,7 +112,7 @@ public class DatasetPreviewService {
     ) {
         String rule = String.valueOf(node.getOrDefault("rule", node.get("type")));
         if (rule == null || rule.isBlank() || "null".equals(rule)) {
-            throw new IllegalArgumentException("Node at " + path + " is missing a rule");
+            throw new IllegalArgumentException("节点 " + path + " 缺少 rule 定义");
         }
 
         return switch (rule) {
@@ -129,7 +129,7 @@ public class DatasetPreviewService {
             case "array" -> generateArray(path, node, rootContext, currentContext, state);
             case "reference" -> resolveReference(node, currentContext, rootContext);
             case "template" -> renderTemplate(String.valueOf(node.getOrDefault("template", "")), currentContext, rootContext);
-            default -> throw new IllegalArgumentException("Unsupported rule at " + path + ": " + rule);
+            default -> throw new IllegalArgumentException("节点 " + path + " 使用了不支持的规则：" + rule);
         };
     }
 
@@ -142,7 +142,7 @@ public class DatasetPreviewService {
     ) {
         Object itemObject = node.get("item");
         if (!(itemObject instanceof Map<?, ?> rawItem)) {
-            throw new IllegalArgumentException("Array node at " + path + " must declare an item object");
+            throw new IllegalArgumentException("数组节点 " + path + " 必须声明 item 对象");
         }
 
         @SuppressWarnings("unchecked")
@@ -168,7 +168,7 @@ public class DatasetPreviewService {
         long min = asLong(node.getOrDefault("min", 0), 0);
         long max = asLong(node.getOrDefault("max", 1000), 1000);
         if (max < min) {
-            throw new IllegalArgumentException("random_int rule has max < min");
+            throw new IllegalArgumentException("random_int 规则的 max 不能小于 min");
         }
         return min + (long) Math.floor(random.nextDouble() * (max - min + 1));
     }
@@ -178,7 +178,7 @@ public class DatasetPreviewService {
         double max = asDouble(node.getOrDefault("max", 1000), 1000);
         int scale = asInteger(node.getOrDefault("scale", 2), 2);
         if (max < min) {
-            throw new IllegalArgumentException("random_decimal rule has max < min");
+            throw new IllegalArgumentException("random_decimal 规则的 max 不能小于 min");
         }
         double generated = min + (random.nextDouble() * (max - min));
         return BigDecimal.valueOf(generated).setScale(scale, RoundingMode.HALF_UP);
@@ -191,7 +191,7 @@ public class DatasetPreviewService {
         String charset = String.valueOf(node.getOrDefault("charset", "abcdefghijklmnopqrstuvwxyz0123456789"));
 
         if (charset.isBlank()) {
-            throw new IllegalArgumentException("string rule requires a non-empty charset");
+            throw new IllegalArgumentException("string 规则要求 charset 不能为空");
         }
 
         int payloadLength = Math.max(0, length);
@@ -206,7 +206,7 @@ public class DatasetPreviewService {
     private Object chooseEnum(Map<String, Object> node, Random random) {
         List<?> values = asList(node.get("values"));
         if (values.isEmpty()) {
-            throw new IllegalArgumentException("enum rule requires a non-empty values array");
+            throw new IllegalArgumentException("enum 规则要求 values 数组不能为空");
         }
         return values.get(random.nextInt(values.size()));
     }
@@ -214,14 +214,14 @@ public class DatasetPreviewService {
     private Object chooseWeightedEnum(Map<String, Object> node, Random random) {
         List<?> options = asList(node.get("options"));
         if (options.isEmpty()) {
-            throw new IllegalArgumentException("weighted_enum rule requires a non-empty options array");
+            throw new IllegalArgumentException("weighted_enum 规则要求 options 数组不能为空");
         }
 
         int totalWeight = 0;
         List<Map<String, Object>> parsedOptions = new ArrayList<>();
         for (Object option : options) {
             if (!(option instanceof Map<?, ?> rawOption)) {
-                throw new IllegalArgumentException("weighted_enum option must be an object");
+                throw new IllegalArgumentException("weighted_enum 的每个 option 都必须是对象");
             }
             @SuppressWarnings("unchecked")
             Map<String, Object> typedOption = (Map<String, Object>) rawOption;
@@ -250,7 +250,7 @@ public class DatasetPreviewService {
         Instant from = Instant.parse(String.valueOf(node.getOrDefault("from", Instant.now().minus(30, ChronoUnit.DAYS))));
         Instant to = Instant.parse(String.valueOf(node.getOrDefault("to", Instant.now())));
         if (to.isBefore(from)) {
-            throw new IllegalArgumentException("datetime rule has to < from");
+            throw new IllegalArgumentException("datetime 规则中 to 不能早于 from");
         }
         long offset = (long) (random.nextDouble() * (to.toEpochMilli() - from.toEpochMilli() + 1));
         return Instant.ofEpochMilli(from.toEpochMilli() + offset).toString();
@@ -259,7 +259,7 @@ public class DatasetPreviewService {
     private Object resolveReference(Map<String, Object> node, Map<String, Object> currentContext, Map<String, Object> rootContext) {
         String path = String.valueOf(node.getOrDefault("path", ""));
         if (path.isBlank()) {
-            throw new IllegalArgumentException("reference rule requires a path");
+            throw new IllegalArgumentException("reference 规则要求提供 path");
         }
 
         Object currentValue = resolvePath(path, currentContext);
@@ -298,7 +298,7 @@ public class DatasetPreviewService {
             return objectMapper.readValue(json, new TypeReference<>() {
             });
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Invalid " + fieldName + ": " + exception.getMessage());
+            throw new IllegalArgumentException(fieldName + " 配置非法：" + exception.getMessage());
         }
     }
 

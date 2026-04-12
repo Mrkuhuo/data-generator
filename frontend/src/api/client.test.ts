@@ -6,15 +6,15 @@ describe("readApiError", () => {
   it("prefers backend response messages from axios errors", () => {
     const error = {
       isAxiosError: true,
-      message: "Request failed",
+      message: "请求失败",
       response: {
         data: {
-          message: "Dataset definition not found"
+          message: "未找到数据集定义"
         }
       }
     } as AxiosError<{ message: string }>;
 
-    expect(readApiError(error)).toBe("Dataset definition not found");
+    expect(readApiError(error)).toBe("未找到数据集定义");
   });
 
   it("falls back to axios error messages when no backend message is present", () => {
@@ -27,10 +27,10 @@ describe("readApiError", () => {
   });
 
   it("supports plain Error instances", () => {
-    expect(readApiError(new Error("Validation failed"))).toBe("Validation failed");
+    expect(readApiError(new Error("请求参数校验失败"))).toBe("请求参数校验失败");
   });
 
   it("returns the provided fallback for unknown values", () => {
-    expect(readApiError({ detail: "unexpected" }, "Unable to load")).toBe("Unable to load");
+    expect(readApiError({ detail: "unexpected" }, "加载失败")).toBe("加载失败");
   });
 });

@@ -50,10 +50,10 @@ public class KafkaConnectorAdapter implements ConnectorAdapter {
         try (AdminClient adminClient = AdminClient.create(buildCommonProperties(config))) {
             int topicCount = adminClient.listTopics(new ListTopicsOptions().timeoutMs(5000)).names().get().size();
             details.put("topicCount", topicCount);
-            return new ConnectorTestResult(true, "READY", "Kafka connection test succeeded", ConnectorConfigSupport.writeDetails(details));
+            return new ConnectorTestResult(true, "READY", "Kafka 连接测试成功", ConnectorConfigSupport.writeDetails(details));
         } catch (Exception exception) {
             details.put("error", exception.getMessage());
-            return new ConnectorTestResult(false, "UNREACHABLE", "Kafka connection test failed", ConnectorConfigSupport.writeDetails(details));
+            return new ConnectorTestResult(false, "UNREACHABLE", "Kafka 连接测试失败", ConnectorConfigSupport.writeDetails(details));
         }
     }
 
@@ -65,7 +65,7 @@ public class KafkaConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.FAILED,
                     0,
                     request.rows().size(),
-                    "Kafka delivery supports APPEND and STREAM only",
+                    "Kafka 投递仅支持 APPEND 和 STREAM",
                     ConnectorConfigSupport.writeDetails(Map.of("writeStrategy", request.job().getWriteStrategy()))
             );
         }
@@ -129,7 +129,7 @@ public class KafkaConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.SUCCESS,
                     successCount,
                     0,
-                    "Delivered " + successCount + " rows to Kafka topic " + topic,
+                    "已向 Kafka Topic " + topic + " 投递 " + successCount + " 条数据",
                     ConnectorConfigSupport.writeDetails(details)
             );
         }
@@ -139,7 +139,7 @@ public class KafkaConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.PARTIAL_SUCCESS,
                     successCount,
                     errorCount,
-                    "Delivered " + successCount + " rows with " + errorCount + " Kafka failures",
+                    "已投递 " + successCount + " 条数据，另有 " + errorCount + " 条 Kafka 失败",
                     ConnectorConfigSupport.writeDetails(details)
             );
         }
@@ -148,7 +148,7 @@ public class KafkaConnectorAdapter implements ConnectorAdapter {
                 DeliveryStatus.FAILED,
                 0,
                 errorCount,
-                "Kafka delivery failed",
+                "Kafka 投递失败",
                 ConnectorConfigSupport.writeDetails(details)
         );
     }

@@ -49,7 +49,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
             return new ConnectorTestResult(
                     true,
                     "READY",
-                    databaseLabel() + " connection test succeeded",
+                    databaseLabel() + " 连接测试成功",
                     ConnectorConfigSupport.writeDetails(details)
             );
         } catch (Exception exception) {
@@ -57,7 +57,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
             return new ConnectorTestResult(
                     false,
                     "UNREACHABLE",
-                    databaseLabel() + " connection test failed",
+                    databaseLabel() + " 连接测试失败",
                     ConnectorConfigSupport.writeDetails(details)
             );
         }
@@ -71,7 +71,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.FAILED,
                     0,
                     request.rows().size(),
-                    databaseLabel() + " delivery supports APPEND and OVERWRITE only",
+                    databaseLabel() + " 投递仅支持 APPEND 和 OVERWRITE",
                     ConnectorConfigSupport.writeDetails(Map.of("writeStrategy", request.job().getWriteStrategy()))
             );
         }
@@ -119,7 +119,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.SUCCESS,
                     request.rows().size(),
                     0,
-                    "Delivered " + request.rows().size() + " rows to " + databaseLabel(),
+                    "已向 " + databaseLabel() + " 投递 " + request.rows().size() + " 条数据",
                     ConnectorConfigSupport.writeDetails(details)
             );
         } catch (Exception exception) {
@@ -129,7 +129,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.FAILED,
                     0,
                     request.rows().size(),
-                    databaseLabel() + " delivery failed",
+                    databaseLabel() + " 投递失败",
                     ConnectorConfigSupport.writeDetails(details)
             );
         } finally {
@@ -186,7 +186,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
             int batchSize
     ) throws Exception {
         if (columns.isEmpty()) {
-            throw new IllegalArgumentException("No columns could be derived for JDBC delivery");
+            throw new IllegalArgumentException("JDBC 投递无法推导出有效字段列");
         }
 
         String sql = buildInsertSql(tableName, columns);
@@ -230,7 +230,7 @@ abstract class AbstractJdbcConnectorAdapter implements ConnectorAdapter {
 
     private String quoteIdentifier(String identifier) {
         if (!identifier.matches("[A-Za-z_][A-Za-z0-9_]*")) {
-            throw new IllegalArgumentException("Unsupported identifier: " + identifier);
+            throw new IllegalArgumentException("不支持的标识符：" + identifier);
         }
         return identifierQuote() + identifier + identifierQuote();
     }

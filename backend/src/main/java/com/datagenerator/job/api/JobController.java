@@ -40,42 +40,42 @@ public class JobController {
 
     @PostMapping
     public ApiResponse<JobDefinition> create(@Valid @RequestBody JobUpsertRequest request) {
-        return ApiResponse.success(jobService.create(request), "Job created");
+        return ApiResponse.success(jobService.create(request), "任务已创建");
     }
 
     @PostMapping("/quickstart")
     public ApiResponse<JobDefinition> createExample() {
-        return ApiResponse.success(jobService.createExample(), "Example job created");
+        return ApiResponse.success(jobService.createExample(), "示例任务已创建");
     }
 
     @PutMapping("/{id}")
     public ApiResponse<JobDefinition> update(@PathVariable Long id, @Valid @RequestBody JobUpsertRequest request) {
-        return ApiResponse.success(jobService.update(id, request), "Job updated");
+        return ApiResponse.success(jobService.update(id, request), "任务已更新");
     }
 
     @PostMapping("/{id}/run")
     public ApiResponse<JobExecution> run(@PathVariable Long id) {
-        return ApiResponse.success(executionService.triggerApiRun(id), "Execution started");
+        return ApiResponse.success(executionService.triggerApiRun(id), "任务执行已开始");
     }
 
     @PostMapping("/{id}/pause")
     public ApiResponse<JobDefinition> pause(@PathVariable Long id) {
-        return ApiResponse.success(jobService.pause(id), "Job paused");
+        return ApiResponse.success(jobService.pause(id), "任务已暂停");
     }
 
     @PostMapping("/{id}/resume")
     public ApiResponse<JobDefinition> resume(@PathVariable Long id) {
-        return ApiResponse.success(jobService.resume(id), "Job resumed");
+        return ApiResponse.success(jobService.resume(id), "任务已恢复");
     }
 
     @PostMapping("/{id}/disable")
     public ApiResponse<JobDefinition> disable(@PathVariable Long id) {
-        return ApiResponse.success(jobService.disable(id), "Job disabled");
+        return ApiResponse.success(jobService.disable(id), "任务已禁用");
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         jobService.delete(id);
-        return ApiResponse.success(null, "Job deleted");
+        return ApiResponse.success(null, "任务已删除");
     }
 }

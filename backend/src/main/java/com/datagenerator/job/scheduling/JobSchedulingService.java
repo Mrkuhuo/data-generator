@@ -96,7 +96,7 @@ public class JobSchedulingService {
                 scheduler.resumeJob(jobDetail.getKey());
             }
         } catch (SchedulerException exception) {
-            throw new IllegalStateException("Failed to schedule job " + job.getId() + ": " + exception.getMessage(), exception);
+            throw new IllegalStateException("调度任务 " + job.getId() + " 失败：" + exception.getMessage(), exception);
         }
     }
 
@@ -107,7 +107,7 @@ public class JobSchedulingService {
                 scheduler.pauseJob(jobKey);
             }
         } catch (SchedulerException exception) {
-            throw new IllegalStateException("Failed to pause job " + jobId + ": " + exception.getMessage(), exception);
+            throw new IllegalStateException("暂停任务 " + jobId + " 失败：" + exception.getMessage(), exception);
         }
     }
 
@@ -120,7 +120,7 @@ public class JobSchedulingService {
                 jobRepository.findById(jobId).ifPresent(this::scheduleOrUpdate);
             }
         } catch (SchedulerException exception) {
-            throw new IllegalStateException("Failed to resume job " + jobId + ": " + exception.getMessage(), exception);
+            throw new IllegalStateException("恢复任务 " + jobId + " 失败：" + exception.getMessage(), exception);
         }
     }
 
@@ -135,7 +135,7 @@ public class JobSchedulingService {
                 scheduler.deleteJob(jobKey);
             }
         } catch (SchedulerException exception) {
-            throw new IllegalStateException("Failed to unschedule job " + jobId + ": " + exception.getMessage(), exception);
+            throw new IllegalStateException("取消调度任务 " + jobId + " 失败：" + exception.getMessage(), exception);
         }
     }
 
@@ -192,7 +192,7 @@ public class JobSchedulingService {
 
     private Trigger buildCronTrigger(JobDefinition job) {
         if (job.getCronExpression() == null || job.getCronExpression().isBlank()) {
-            throw new IllegalArgumentException("CRON jobs require cronExpression");
+            throw new IllegalArgumentException("CRON 任务必须填写 cronExpression");
         }
         return TriggerBuilder.newTrigger()
                 .withIdentity(triggerKey(job.getId()))
@@ -223,7 +223,7 @@ public class JobSchedulingService {
                 "onceAt"
         );
         if (value == null) {
-            throw new IllegalArgumentException("ONCE jobs require runtimeConfig schedule.triggerAt");
+            throw new IllegalArgumentException("单次任务必须在 runtimeConfig.schedule.triggerAt 中配置触发时间");
         }
         return Instant.parse(value);
     }
@@ -248,7 +248,7 @@ public class JobSchedulingService {
             return objectMapper.readValue(runtimeConfigJson, new TypeReference<>() {
             });
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Invalid runtimeConfigJson: " + exception.getMessage(), exception);
+            throw new IllegalArgumentException("运行时配置 runtimeConfigJson 非法：" + exception.getMessage(), exception);
         }
     }
 

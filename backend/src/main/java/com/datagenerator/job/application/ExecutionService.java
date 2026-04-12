@@ -62,7 +62,7 @@ public class ExecutionService {
 
     public JobExecution findById(Long id) {
         return executionRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Execution not found: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("未找到执行记录：" + id));
     }
 
     public List<JobExecutionLog> findLogs(Long executionId) {
@@ -96,7 +96,7 @@ public class ExecutionService {
         execution.setStartedAt(Instant.now());
         JobExecution savedExecution = executionRepository.save(execution);
 
-        log(savedExecution.getId(), LogLevel.INFO, triggerType + " execution started", Map.of("jobId", jobId));
+        log(savedExecution.getId(), LogLevel.INFO, describeTriggerType(triggerType) + "执行已开始", Map.of("jobId", jobId));
 
         try {
             Map<String, Object> runtimeConfig = readRuntimeConfig(job.getRuntimeConfigJson());
@@ -111,7 +111,7 @@ public class ExecutionService {
 
             GeneratedDatasetBatch batch = datasetPreviewService.generate(job.getDatasetDefinitionId(), requestedCount, requestedSeed);
             savedExecution.setGeneratedCount((long) batch.count());
-            log(savedExecution.getId(), LogLevel.INFO, "Dataset batch generated", Map.of(
+            log(savedExecution.getId(), LogLevel.INFO, "数据集批次已生成", Map.of(
                     "datasetId", batch.dataset().getId(),
                     "rows", batch.count(),
                     "seed", batch.seed()
@@ -129,7 +129,7 @@ public class ExecutionService {
             int attempts = Math.max(maxAttempts, 1);
             for (int attempt = 1; attempt <= attempts; attempt++) {
                 if (attempt > 1) {
-                    log(savedExecution.getId(), LogLevel.WARN, "Retrying connector delivery", Map.of(
+                    log(savedExecution.getId(), LogLevel.WARN, "正在重试连接器投递", Map.of(
                             "attempt", attempt,
                             "maxAttempts", attempts,
                             "backoffMs", backoffMs
@@ -154,7 +154,7 @@ public class ExecutionService {
             savedExecution.setStatus(mapStatus(result.status()));
 
             log(savedExecution.getId(), result.errorCount() > 0 ? LogLevel.WARN : LogLevel.INFO,
-                    "Connector delivery finished", Map.of(
+                    "连接器投递完成", Map.of(
                             "connectorId", connector.getId(),
                             "deliveryStatus", result.status(),
                             "deliveredCount", result.deliveredCount(),
@@ -166,7 +166,7 @@ public class ExecutionService {
             savedExecution.setStatus(ExecutionStatus.FAILED);
             savedExecution.setErrorSummary(exception.getMessage());
             savedExecution.setErrorCount(Math.max(savedExecution.getErrorCount(), 1));
-            log(savedExecution.getId(), LogLevel.ERROR, "Execution failed", Map.of("error", exception.getMessage()));
+            log(savedExecution.getId(), LogLevel.ERROR, "执行失败", Map.of("error", exception.getMessage()));
         }
 
         return executionRepository.save(savedExecution);
@@ -193,7 +193,7 @@ public class ExecutionService {
             return objectMapper.readValue(runtimeConfigJson, new TypeReference<>() {
             });
         } catch (Exception exception) {
-            throw new IllegalArgumentException("Invalid runtimeConfigJson: " + exception.getMessage());
+            throw new IllegalArgumentException("运行时配置 runtimeConfigJson 非法：" + exception.getMessage());
         }
     }
 
@@ -201,7 +201,7 @@ public class ExecutionService {
         try {
             return objectMapper.writeValueAsString(new LinkedHashMap<>(details));
         } catch (Exception exception) {
-            return "{\"error\":\"Failed to serialize execution log details\"}";
+            return "{\"error\":\"执行日志明细序列化失败\"}";
         }
     }
 
@@ -242,5 +242,13 @@ public class ExecutionService {
         } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private String describeTriggerType(TriggerType triggerType) {
+        return switch (triggerType) {
+            case MANUAL -> "手动触发";
+            case SCHEDULED -> "调度触发";
+            case API -> "接口触发";
+        };
     }
 }

@@ -47,7 +47,7 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
         try {
             URI uri = URI.create(url);
             if (uri.getScheme() == null || uri.getHost() == null) {
-                throw new IllegalArgumentException("HTTP connector requires an absolute URL");
+                throw new IllegalArgumentException("HTTP 连接器必须使用绝对 URL");
             }
 
             Map<String, Object> details = new LinkedHashMap<>();
@@ -55,7 +55,7 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
             details.put("method", method);
             details.put("host", uri.getHost());
 
-            return new ConnectorTestResult(true, "READY", "HTTP connector configuration is valid", ConnectorConfigSupport.writeDetails(details));
+            return new ConnectorTestResult(true, "READY", "HTTP 连接器配置有效", ConnectorConfigSupport.writeDetails(details));
         } catch (Exception exception) {
             return new ConnectorTestResult(false, "INVALID_URL", exception.getMessage(), "{\"url\":\"" + url.replace("\"", "'") + "\"}");
         }
@@ -77,7 +77,7 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.FAILED,
                     0,
                     request.rows().size(),
-                    "HTTP delivery currently supports POST, PUT, or PATCH only",
+                    "HTTP 投递目前仅支持 POST、PUT 或 PATCH",
                     "{\"method\":\"" + method + "\"}"
             );
         }
@@ -123,7 +123,7 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.SUCCESS,
                     successCount,
                     0,
-                    "Delivered " + successCount + " rows to HTTP endpoint",
+                    "已向 HTTP 接口投递 " + successCount + " 条数据",
                     ConnectorConfigSupport.writeDetails(details)
             );
         }
@@ -133,7 +133,7 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.PARTIAL_SUCCESS,
                     successCount,
                     errorCount,
-                    "Delivered " + successCount + " rows with " + errorCount + " HTTP failures",
+                    "已投递 " + successCount + " 条数据，另有 " + errorCount + " 条 HTTP 失败",
                     ConnectorConfigSupport.writeDetails(details)
             );
         }
@@ -142,7 +142,7 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
                 DeliveryStatus.FAILED,
                 0,
                 errorCount,
-                "HTTP delivery failed",
+                "HTTP 投递失败",
                 ConnectorConfigSupport.writeDetails(details)
         );
     }

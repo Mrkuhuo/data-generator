@@ -2,20 +2,20 @@
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">Dataset Studio</p>
-        <h2>Define reusable generation rules and preview them instantly.</h2>
+        <p class="eyebrow">数据集工作台</p>
+        <h2>定义可复用的生成规则，并即时预览模拟结果。</h2>
       </div>
       <div class="page-actions">
-        <button class="button button--ghost" type="button" @click="createExampleDataset">Quickstart Dataset</button>
-        <button class="button button--ghost" type="button" @click="loadDatasets">Refresh</button>
+        <button class="button button--ghost" type="button" @click="createExampleDataset">快速示例数据集</button>
+        <button class="button button--ghost" type="button" @click="loadDatasets">刷新</button>
       </div>
     </header>
 
     <section class="workspace-grid">
       <article class="panel form-panel">
         <div>
-          <p class="eyebrow">{{ selectedDatasetId ? "Edit Dataset" : "Create Dataset" }}</p>
-          <h3>{{ selectedDatasetId ? "Update dataset definition" : "New dataset definition" }}</h3>
+          <p class="eyebrow">{{ selectedDatasetId ? "编辑数据集" : "新建数据集" }}</p>
+          <h3>{{ selectedDatasetId ? "更新数据集定义" : "创建新的数据集定义" }}</h3>
         </div>
 
         <div
@@ -29,36 +29,36 @@
         <form class="form-grid" @submit.prevent="saveDataset">
           <div class="field">
             <label>
-              <span>Name</span>
-              <input v-model.trim="form.name" type="text" placeholder="User Activity v1" />
+              <span>名称</span>
+              <input v-model.trim="form.name" type="text" placeholder="用户行为数据 v1" />
             </label>
           </div>
 
           <div class="field field--half">
             <label>
-              <span>Category</span>
-              <input v-model.trim="form.category" type="text" placeholder="commerce" />
+              <span>分类</span>
+              <input v-model.trim="form.category" type="text" placeholder="电商" />
             </label>
 
             <label>
-              <span>Version</span>
+              <span>版本</span>
               <input v-model.trim="form.version" type="text" placeholder="v1" />
             </label>
           </div>
 
           <div class="field">
             <label>
-              <span>Status</span>
+              <span>状态</span>
               <select v-model="form.status">
-                <option v-for="status in datasetStatuses" :key="status" :value="status">{{ status }}</option>
+                <option v-for="status in datasetStatuses" :key="status" :value="status">{{ labelDatasetStatus(status) }}</option>
               </select>
             </label>
           </div>
 
           <div class="field">
             <label>
-              <span>Description</span>
-              <textarea v-model.trim="form.description" rows="3" placeholder="Describe this synthetic model." />
+              <span>说明</span>
+              <textarea v-model.trim="form.description" rows="3" placeholder="描述这个模拟数据模型的用途。" />
             </label>
           </div>
 
@@ -75,7 +75,7 @@
 
           <div class="field">
             <label>
-              <span>Sample Config JSON</span>
+              <span>示例配置 JSON</span>
               <textarea
                 v-model="form.sampleConfigJson"
                 class="code-input"
@@ -85,15 +85,15 @@
           </div>
 
           <div class="button-row">
-            <button class="button" type="submit">{{ selectedDatasetId ? "Save Dataset" : "Create Dataset" }}</button>
-            <button class="button button--ghost" type="button" @click="resetForm">Reset</button>
+            <button class="button" type="submit">{{ selectedDatasetId ? "保存数据集" : "创建数据集" }}</button>
+            <button class="button button--ghost" type="button" @click="resetForm">重置</button>
             <button
               v-if="selectedDatasetId"
               class="button button--ghost"
               type="button"
               @click="previewDataset(selectedDatasetId)"
             >
-              Preview Selected
+              预览当前数据集
             </button>
             <button
               v-if="selectedDatasetId"
@@ -101,7 +101,7 @@
               type="button"
               @click="removeDataset(selectedDatasetId)"
             >
-              Delete
+              删除
             </button>
           </div>
         </form>
@@ -110,18 +110,18 @@
       <div class="stack">
         <article class="panel form-panel">
           <div>
-            <p class="eyebrow">Preview Console</p>
-            <h3>Preview a saved dataset with custom count and seed.</h3>
+            <p class="eyebrow">预览控制台</p>
+            <h3>按自定义条数和种子预览已保存的数据集。</h3>
           </div>
 
           <div class="field field--half">
             <label>
-              <span>Count</span>
+              <span>生成条数</span>
               <input v-model.number="previewForm.count" type="number" min="1" step="1" />
             </label>
 
             <label>
-              <span>Seed</span>
+              <span>随机种子</span>
               <input v-model="previewForm.seed" type="text" placeholder="20260412" />
             </label>
           </div>
@@ -133,13 +133,13 @@
               :disabled="selectedDatasetId == null"
               @click="selectedDatasetId && previewDataset(selectedDatasetId)"
             >
-              Generate Preview
+              生成预览
             </button>
-            <span class="muted">{{ selectedDatasetId ? `Current dataset #${selectedDatasetId}` : "Select a saved dataset first" }}</span>
+            <span class="muted">{{ selectedDatasetId ? `当前数据集 #${selectedDatasetId}` : "请先选择一个已保存的数据集" }}</span>
           </div>
 
           <div v-if="previewRows.length" class="preview-block">
-            <p class="eyebrow">Preview Rows</p>
+            <p class="eyebrow">预览结果</p>
             <pre class="code-block">{{ formatJson(previewRows) }}</pre>
           </div>
         </article>
@@ -153,26 +153,26 @@
           >
             <div class="panel__row">
               <h3>{{ dataset.name }}</h3>
-              <span class="pill">{{ dataset.status }}</span>
+              <span class="pill">{{ labelDatasetStatus(dataset.status) }}</span>
             </div>
 
             <div class="meta-grid">
-              <p class="muted">{{ dataset.category || "Uncategorized" }} / {{ dataset.version }}</p>
-              <p>{{ dataset.description || "Dataset description is still empty." }}</p>
+              <p class="muted">{{ dataset.category || "未分类" }} / {{ dataset.version }}</p>
+              <p>{{ dataset.description || "暂无数据集说明。" }}</p>
               <pre class="code-block">{{ dataset.schemaJson }}</pre>
             </div>
 
             <div class="panel__actions">
-              <button class="button" type="button" @click="selectDataset(dataset)">Edit</button>
-              <button class="button button--ghost" type="button" @click="previewDataset(dataset.id)">Preview</button>
-              <button class="button button--danger" type="button" @click="removeDataset(dataset.id)">Delete</button>
+              <button class="button" type="button" @click="selectDataset(dataset)">编辑</button>
+              <button class="button button--ghost" type="button" @click="previewDataset(dataset.id)">预览</button>
+              <button class="button button--danger" type="button" @click="removeDataset(dataset.id)">删除</button>
             </div>
           </article>
         </section>
 
         <section v-else class="empty-state">
-          <h3>No dataset definitions yet</h3>
-          <p>Create one from the form or load the quickstart dataset to start validating generation rules.</p>
+          <h3>还没有数据集定义</h3>
+          <p>可以先从左侧表单创建，也可以一键加载快速示例数据集来验证生成规则。</p>
         </section>
       </div>
     </section>
@@ -182,6 +182,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
 import { apiClient, readApiError, type ApiResponse } from "../api/client";
+import { labelDatasetStatus } from "../utils/display";
 
 type FeedbackKind = "success" | "error";
 type DatasetStatus = "DRAFT" | "READY" | "ARCHIVED";
@@ -263,7 +264,7 @@ function normalizeJson(value: string, label: string) {
   try {
     return JSON.stringify(JSON.parse(value), null, 2);
   } catch (error) {
-    throw new Error(`${label} must be valid JSON`);
+    throw new Error(`${label} 必须是合法的 JSON`);
   }
 }
 
@@ -300,7 +301,7 @@ function selectDataset(dataset: Dataset) {
   form.status = dataset.status;
   form.description = dataset.description ?? "";
   form.schemaJson = normalizeJson(dataset.schemaJson, "Schema JSON");
-  form.sampleConfigJson = normalizeJson(dataset.sampleConfigJson, "Sample config JSON");
+  form.sampleConfigJson = normalizeJson(dataset.sampleConfigJson, "示例配置 JSON");
   syncPreviewDefaults(dataset.sampleConfigJson);
   clearFeedback();
 }
@@ -320,7 +321,7 @@ async function loadDatasets() {
     }
   } catch (error) {
     datasets.value = [];
-    setFeedback("error", readApiError(error, "Failed to load datasets"));
+    setFeedback("error", readApiError(error, "加载数据集失败"));
   }
 }
 
@@ -328,9 +329,9 @@ async function createExampleDataset() {
   try {
     await apiClient.post("/datasets/quickstart");
     await loadDatasets();
-    setFeedback("success", "Quickstart dataset created");
+    setFeedback("success", "快速示例数据集已创建");
   } catch (error) {
-    setFeedback("error", readApiError(error, "Failed to create quickstart dataset"));
+    setFeedback("error", readApiError(error, "创建快速示例数据集失败"));
   }
 }
 
@@ -343,20 +344,20 @@ async function saveDataset() {
       status: form.status,
       description: form.description || null,
       schemaJson: normalizeJson(form.schemaJson, "Schema JSON"),
-      sampleConfigJson: normalizeJson(form.sampleConfigJson, "Sample config JSON")
+      sampleConfigJson: normalizeJson(form.sampleConfigJson, "示例配置 JSON")
     };
 
     if (selectedDatasetId.value) {
       await apiClient.put(`/datasets/${selectedDatasetId.value}`, payload);
-      setFeedback("success", "Dataset updated");
+      setFeedback("success", "数据集已更新");
     } else {
       await apiClient.post("/datasets", payload);
-      setFeedback("success", "Dataset created");
+      setFeedback("success", "数据集已创建");
     }
 
     await loadDatasets();
   } catch (error) {
-    setFeedback("error", readApiError(error, "Failed to save dataset"));
+    setFeedback("error", readApiError(error, "保存数据集失败"));
   }
 }
 
@@ -374,11 +375,11 @@ async function previewDataset(datasetId: number) {
 
     if (response.data.success) {
       previewRows.value = response.data.data.rows;
-      setFeedback("success", `Preview generated with ${response.data.data.count} rows`);
+      setFeedback("success", `预览已生成，共 ${response.data.data.count} 条记录`);
     }
   } catch (error) {
     previewRows.value = [];
-    setFeedback("error", readApiError(error, "Failed to preview dataset"));
+    setFeedback("error", readApiError(error, "生成预览失败"));
   }
 }
 
@@ -389,9 +390,9 @@ async function removeDataset(datasetId: number) {
       resetForm();
     }
     await loadDatasets();
-    setFeedback("success", "Dataset deleted");
+    setFeedback("success", "数据集已删除");
   } catch (error) {
-    setFeedback("error", readApiError(error, "Failed to delete dataset"));
+    setFeedback("error", readApiError(error, "删除数据集失败"));
   }
 }
 

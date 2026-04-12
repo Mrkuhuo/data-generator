@@ -20,7 +20,7 @@ public class ApiExceptionHandler {
         String message = exception.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .orElse("Validation failed");
+                .orElse("请求参数校验失败");
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.failure(message));
@@ -32,4 +32,3 @@ public class ApiExceptionHandler {
                 .body(ApiResponse.failure(exception.getMessage()));
     }
 }
-

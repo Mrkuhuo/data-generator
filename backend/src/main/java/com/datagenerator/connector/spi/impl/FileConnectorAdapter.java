@@ -44,7 +44,7 @@ public class FileConnectorAdapter implements ConnectorAdapter {
         Path outputPath = Path.of(pathValue).toAbsolutePath().normalize();
         Path parent = outputPath.getParent();
         if (parent == null) {
-            return new ConnectorTestResult(false, "INVALID_PATH", "Output path must include a parent directory", "{\"path\":\"" + outputPath + "\"}");
+            return new ConnectorTestResult(false, "INVALID_PATH", "输出路径必须包含父目录", "{\"path\":\"" + outputPath + "\"}");
         }
 
         boolean parentExists = Files.exists(parent);
@@ -57,7 +57,7 @@ public class FileConnectorAdapter implements ConnectorAdapter {
                 failedDetails.put("path", outputPath.toString());
                 failedDetails.put("format", format);
                 failedDetails.put("error", exception.getMessage());
-                return new ConnectorTestResult(false, "PATH_CREATE_FAILED", "Failed to create parent directory", ConnectorConfigSupport.writeDetails(failedDetails));
+                return new ConnectorTestResult(false, "PATH_CREATE_FAILED", "创建父目录失败", ConnectorConfigSupport.writeDetails(failedDetails));
             }
         }
         boolean writable = parentExists && Files.isWritable(parent);
@@ -69,9 +69,9 @@ public class FileConnectorAdapter implements ConnectorAdapter {
         details.put("writable", writable);
 
         if (!writable) {
-            return new ConnectorTestResult(false, "NOT_WRITABLE", "Parent directory is not writable", ConnectorConfigSupport.writeDetails(details));
+            return new ConnectorTestResult(false, "NOT_WRITABLE", "父目录不可写", ConnectorConfigSupport.writeDetails(details));
         }
-        return new ConnectorTestResult(true, "READY", "File output path is writable", ConnectorConfigSupport.writeDetails(details));
+        return new ConnectorTestResult(true, "READY", "文件输出路径可写", ConnectorConfigSupport.writeDetails(details));
     }
 
     @Override
@@ -92,7 +92,7 @@ public class FileConnectorAdapter implements ConnectorAdapter {
                         DeliveryStatus.FAILED,
                         0,
                         request.rows().size(),
-                        "Unsupported file format: " + format,
+                        "不支持的文件格式：" + format,
                         "{\"format\":\"" + format + "\"}"
                 );
             };
@@ -104,7 +104,7 @@ public class FileConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.FAILED,
                     0,
                     request.rows().size(),
-                    "File delivery failed",
+                    "文件投递失败",
                     ConnectorConfigSupport.writeDetails(details)
             );
         }
@@ -131,7 +131,7 @@ public class FileConnectorAdapter implements ConnectorAdapter {
                     DeliveryStatus.FAILED,
                     0,
                     request.rows().size(),
-                    "JSON file output currently supports OVERWRITE only",
+                    "JSON 文件输出目前仅支持 OVERWRITE",
                     "{\"format\":\"json\",\"writeStrategy\":\"" + request.job().getWriteStrategy() + "\"}"
             );
         }
@@ -186,7 +186,7 @@ public class FileConnectorAdapter implements ConnectorAdapter {
                 DeliveryStatus.SUCCESS,
                 rowCount,
                 0,
-                "Delivered " + rowCount + " rows to file output",
+                "已向文件输出投递 " + rowCount + " 条数据",
                 ConnectorConfigSupport.writeDetails(details)
         );
     }

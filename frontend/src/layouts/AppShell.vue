@@ -4,8 +4,8 @@
       <div class="brand">
         <span class="brand__mark">MDG</span>
         <div>
-          <p class="eyebrow">Rewrite Track</p>
-          <h1>Multisource Generator</h1>
+          <p class="eyebrow">中文系统</p>
+          <h1>多数据源模拟数据生成器</h1>
         </div>
       </div>
 
@@ -17,8 +17,8 @@
       </nav>
 
       <section class="rail-note">
-        <p class="eyebrow">Current Phase</p>
-        <p>Runtime delivery now works for file, HTTP, MySQL, PostgreSQL, and Kafka, with editable connector, dataset, and job workspaces.</p>
+        <p class="eyebrow">当前阶段</p>
+        <p>系统已经支持文件、HTTP、MySQL、PostgreSQL 与 Kafka 的真实投递，并提供可编辑的连接器、数据集、任务与执行工作台。</p>
       </section>
     </aside>
 
@@ -30,10 +30,10 @@
 
 <script setup lang="ts">
 const navItems = [
-  { to: "/", label: "Overview", hint: "Product status" },
-  { to: "/connectors", label: "Connectors", hint: "Targets and sources" },
-  { to: "/datasets", label: "Datasets", hint: "Synthetic models" },
-  { to: "/jobs", label: "Jobs", hint: "Runtime definitions" },
-  { to: "/executions", label: "Executions", hint: "Observed runs" }
+  { to: "/", label: "总览", hint: "平台状态" },
+  { to: "/connectors", label: "连接器", hint: "目标与来源" },
+  { to: "/datasets", label: "数据集", hint: "模拟模型" },
+  { to: "/jobs", label: "任务", hint: "运行定义" },
+  { to: "/executions", label: "执行记录", hint: "运行观测" }
 ];
 </script>

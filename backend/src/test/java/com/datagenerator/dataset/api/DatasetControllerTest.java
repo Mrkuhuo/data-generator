@@ -55,7 +55,7 @@ class DatasetControllerTest {
                         .content(objectMapper.writeValueAsString(new DatasetPreviewRequest(2, 20260412L))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Dataset preview generated"))
+                .andExpect(jsonPath("$.message").value("数据集预览已生成"))
                 .andExpect(jsonPath("$.data.count").value(2))
                 .andExpect(jsonPath("$.data.seed").value(20260412))
                 .andExpect(jsonPath("$.data.rows[0].userId").value("u-1"));
@@ -88,13 +88,13 @@ class DatasetControllerTest {
 
     @Test
     void preview_shouldMapIllegalArgumentsToBadRequest() throws Exception {
-        given(datasetPreviewService.preview(eq(6L), any())).willThrow(new IllegalArgumentException("Dataset is archived"));
+        given(datasetPreviewService.preview(eq(6L), any())).willThrow(new IllegalArgumentException("已归档的数据集不支持预览"));
 
         mockMvc.perform(post("/api/datasets/6/preview")
                         .contentType(APPLICATION_JSON)
-                        .content("{}"))
+                .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Dataset is archived"));
+                .andExpect(jsonPath("$.message").value("已归档的数据集不支持预览"));
     }
 }

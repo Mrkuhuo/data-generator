@@ -62,7 +62,7 @@ class JobControllerTest {
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Job created"))
+                .andExpect(jsonPath("$.message").value("任务已创建"))
                 .andExpect(jsonPath("$.data.id").value(12))
                 .andExpect(jsonPath("$.data.name").value("Realtime export"))
                 .andExpect(jsonPath("$.data.scheduleType").value("CRON"));
@@ -107,7 +107,7 @@ class JobControllerTest {
         mockMvc.perform(post("/api/jobs/9/run"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Execution started"))
+                .andExpect(jsonPath("$.message").value("任务执行已开始"))
                 .andExpect(jsonPath("$.data.id").value(33))
                 .andExpect(jsonPath("$.data.triggerType").value("API"))
                 .andExpect(jsonPath("$.data.status").value("RUNNING"));

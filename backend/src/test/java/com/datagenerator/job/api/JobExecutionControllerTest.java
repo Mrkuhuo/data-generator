@@ -55,7 +55,7 @@ class JobExecutionControllerTest {
         log.setId(91L);
         log.setJobExecutionId(44L);
         log.setLogLevel(LogLevel.INFO);
-        log.setMessage("Connector delivery finished");
+        log.setMessage("连接器投递完成");
         log.setDetailJson("{\"deliveredCount\":100}");
         log.setLoggedAt(Instant.parse("2026-04-12T10:01:00Z"));
         given(executionService.findLogs(44L)).willReturn(List.of(log));
@@ -64,7 +64,7 @@ class JobExecutionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].id").value(91))
-                .andExpect(jsonPath("$.data[0].message").value("Connector delivery finished"))
+                .andExpect(jsonPath("$.data[0].message").value("连接器投递完成"))
                 .andExpect(jsonPath("$.data[0].logLevel").value("INFO"));
     }
 }

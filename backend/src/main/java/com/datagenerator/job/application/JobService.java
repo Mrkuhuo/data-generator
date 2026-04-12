@@ -43,7 +43,7 @@ public class JobService {
 
     public JobDefinition findById(Long id) {
         JobDefinition job = jobRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("未找到任务：" + id));
         applyScheduleSnapshot(job);
         return job;
     }
@@ -83,15 +83,15 @@ public class JobService {
     public JobDefinition createExample() {
         Long datasetId = datasetRepository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Create a dataset first before creating a quickstart job"))
+                .orElseThrow(() -> new IllegalArgumentException("请先创建数据集，再创建快速示例任务"))
                 .getId();
         Long connectorId = connectorRepository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Create a connector first before creating a quickstart job"))
+                .orElseThrow(() -> new IllegalArgumentException("请先创建连接器，再创建快速示例任务"))
                 .getId();
 
         JobDefinition job = new JobDefinition();
-        job.setName("Example Delivery Job");
+        job.setName("示例投递任务");
         job.setDatasetDefinitionId(datasetId);
         job.setTargetConnectorId(connectorId);
         job.setWriteStrategy(JobWriteStrategy.APPEND);
@@ -108,7 +108,7 @@ public class JobService {
                     "keyField": "userId"
                   },
                   "concurrency": 1,
-                  "note": "target.table is used by MYSQL/POSTGRESQL, target.topic and target.keyField are used by KAFKA"
+                  "note": "target.table 供 MYSQL/POSTGRESQL 使用，target.topic 与 target.keyField 供 KAFKA 使用"
                 }
                 """);
         JobDefinition saved = jobRepository.save(job);

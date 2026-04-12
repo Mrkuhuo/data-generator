@@ -150,7 +150,7 @@ class ExecutionServiceTest {
         verify(connectorRegistry, times(2)).deliver(any());
         verify(executionLogRepository, times(4)).save(logCaptor.capture());
         assertThat(logCaptor.getAllValues())
-                .anyMatch(log -> log.getMessage().equals("Retrying connector delivery"));
+                .anyMatch(log -> log.getMessage().equals("正在重试连接器投递"));
     }
 
     @Test
@@ -190,7 +190,7 @@ class ExecutionServiceTest {
 
         assertThat(execution.getStatus()).isEqualTo(ExecutionStatus.FAILED);
         assertThat(execution.getErrorCount()).isEqualTo(1);
-        assertThat(execution.getErrorSummary()).contains("Invalid runtimeConfigJson");
+        assertThat(execution.getErrorSummary()).contains("运行时配置 runtimeConfigJson 非法");
         verify(datasetPreviewService, never()).generate(any(Long.class), any(), any());
         verify(connectorRegistry, never()).deliver(any());
     }

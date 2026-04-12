@@ -82,8 +82,9 @@ describe("JobsView", () => {
 
     expect(getMock).toHaveBeenCalledTimes(3);
     expect(wrapper.text()).toContain("Nightly profile export");
-    expect(wrapper.text()).toContain("Synthetic Profiles -> Warehouse Sink (MYSQL)");
-    expect(wrapper.text()).toContain("Scheduler: NORMAL");
+    expect(wrapper.text()).toContain("Synthetic Profiles");
+    expect(wrapper.text()).toContain("Warehouse Sink（MySQL）");
+    expect(wrapper.text()).toContain("调度状态：正常");
   });
 
   it("creates a job with normalized runtime config", async () => {
@@ -131,7 +132,7 @@ describe("JobsView", () => {
         2
       )
     });
-    expect(wrapper.text()).toContain("Job created");
+    expect(wrapper.text()).toContain("任务已创建");
   });
 
   it("shows a validation message when runtime config is invalid JSON", async () => {
@@ -145,6 +146,6 @@ describe("JobsView", () => {
     await flushPromises();
 
     expect(postMock).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain("Runtime config must be valid JSON");
+    expect(wrapper.text()).toContain("运行时配置 必须是合法的 JSON");
   });
 });

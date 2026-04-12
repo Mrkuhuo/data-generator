@@ -16,7 +16,7 @@ public final class ConnectorConfigSupport {
     }
 
     public static Map<String, Object> readConfig(ConnectorInstance connector) {
-        return readConfig(connector.getConfigJson(), "Connector config");
+        return readConfig(connector.getConfigJson(), "连接器配置");
     }
 
     public static Map<String, Object> readConfig(String json, String label) {
@@ -27,7 +27,7 @@ public final class ConnectorConfigSupport {
             return OBJECT_MAPPER.readValue(json, new TypeReference<>() {
             });
         } catch (Exception exception) {
-            throw new IllegalArgumentException(label + " is not valid JSON: " + exception.getMessage());
+            throw new IllegalArgumentException(label + " 不是合法的 JSON：" + exception.getMessage());
         }
     }
 
@@ -35,14 +35,14 @@ public final class ConnectorConfigSupport {
         try {
             return OBJECT_MAPPER.writeValueAsString(details);
         } catch (Exception exception) {
-            return "{\"error\":\"Failed to serialize connector test details\"}";
+            return "{\"error\":\"连接器测试详情序列化失败\"}";
         }
     }
 
     public static String requireString(Map<String, Object> config, String... keys) {
         String value = optionalString(config, keys);
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Missing config field: " + String.join(" or ", keys));
+            throw new IllegalArgumentException("缺少配置字段：" + String.join(" 或 ", keys));
         }
         return value;
     }

@@ -11,7 +11,7 @@ export const apiClient = axios.create({
   timeout: 8000
 });
 
-export function readApiError(error: unknown, fallback = "Request failed") {
+export function readApiError(error: unknown, fallback = "请求失败") {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;
     if (typeof message === "string" && message.trim()) {

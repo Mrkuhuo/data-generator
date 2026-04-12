@@ -24,7 +24,7 @@ public class DatasetService {
 
     public DatasetDefinition findById(Long id) {
         return datasetRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Dataset not found: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("未找到数据集：" + id));
     }
 
     @Transactional
@@ -53,11 +53,11 @@ public class DatasetService {
     @Transactional
     public DatasetDefinition createExample() {
         DatasetDefinition dataset = new DatasetDefinition();
-        dataset.setName("Example User Activity");
-        dataset.setCategory("quickstart");
+        dataset.setName("示例用户行为数据");
+        dataset.setCategory("快速开始");
         dataset.setVersion("v1");
         dataset.setStatus(DatasetStatus.READY);
-        dataset.setDescription("Starter schema covering sequence, enum, template, object, array, and datetime rules.");
+        dataset.setDescription("覆盖 sequence、enum、template、object、array、datetime 等规则的入门示例数据集。");
         dataset.setSchemaJson("""
                 {
                   "type": "object",

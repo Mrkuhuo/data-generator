@@ -46,10 +46,10 @@ class ConnectorConfigSupportTest {
     void shouldFailFastForInvalidOrMissingRequiredFields() {
         assertThatThrownBy(() -> ConnectorConfigSupport.readConfig("{bad-json", "connector"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("connector is not valid JSON");
+                .hasMessageContaining("connector 不是合法的 JSON");
 
         assertThatThrownBy(() -> ConnectorConfigSupport.requireString(Map.of(), "jdbcUrl", "url"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Missing config field");
+                .hasMessageContaining("缺少配置字段");
     }
 }

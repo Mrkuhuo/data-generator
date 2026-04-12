@@ -41,27 +41,27 @@ public class DatasetController {
 
     @PostMapping
     public ApiResponse<DatasetDefinition> create(@Valid @RequestBody DatasetUpsertRequest request) {
-        return ApiResponse.success(datasetService.create(request), "Dataset created");
+        return ApiResponse.success(datasetService.create(request), "数据集已创建");
     }
 
     @PostMapping("/quickstart")
     public ApiResponse<DatasetDefinition> createExample() {
-        return ApiResponse.success(datasetService.createExample(), "Example dataset created");
+        return ApiResponse.success(datasetService.createExample(), "示例数据集已创建");
     }
 
     @PutMapping("/{id}")
     public ApiResponse<DatasetDefinition> update(@PathVariable Long id, @Valid @RequestBody DatasetUpsertRequest request) {
-        return ApiResponse.success(datasetService.update(id, request), "Dataset updated");
+        return ApiResponse.success(datasetService.update(id, request), "数据集已更新");
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         datasetService.delete(id);
-        return ApiResponse.success(null, "Dataset deleted");
+        return ApiResponse.success(null, "数据集已删除");
     }
 
     @PostMapping("/{id}/preview")
     public ApiResponse<DatasetPreviewResponse> preview(@PathVariable Long id, @RequestBody(required = false) DatasetPreviewRequest request) {
-        return ApiResponse.success(datasetPreviewService.preview(id, request), "Dataset preview generated");
+        return ApiResponse.success(datasetPreviewService.preview(id, request), "数据集预览已生成");
     }
 }

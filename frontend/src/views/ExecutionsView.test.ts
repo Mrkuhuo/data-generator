@@ -47,7 +47,7 @@ function configureLedger() {
     {
       id: 91,
       logLevel: "INFO",
-      message: "Connector delivery finished",
+      message: "连接器投递完成",
       detailJson: JSON.stringify({
         connectorId: 5,
         deliveryStatus: "SUCCESS",
@@ -86,9 +86,9 @@ describe("ExecutionsView", () => {
     await flushPromises();
 
     expect(getMock).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).toContain("Execution #7");
-    expect(wrapper.text()).toContain("Kafka activity stream / Trigger MANUAL");
-    expect(wrapper.text()).toContain("No execution summary yet.");
+    expect(wrapper.text()).toContain("执行记录 #7");
+    expect(wrapper.text()).toContain("Kafka activity stream / 触发方式 手动");
+    expect(wrapper.text()).toContain("暂时没有执行摘要。");
   });
 
   it("loads execution logs and derives the delivery snapshot", async () => {
@@ -97,7 +97,7 @@ describe("ExecutionsView", () => {
     const wrapper = mount(ExecutionsView);
     await flushPromises();
 
-    const inspectLogsButton = wrapper.findAll("button").find((button) => button.text().includes("Inspect Logs"));
+    const inspectLogsButton = wrapper.findAll("button").find((button) => button.text().includes("查看日志"));
     if (!inspectLogsButton) {
       throw new Error("Expected Inspect Logs button");
     }
@@ -105,8 +105,8 @@ describe("ExecutionsView", () => {
     await inspectLogsButton.trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Loaded 1 logs for execution #7");
-    expect(wrapper.text()).toContain("Connector delivery finished");
+    expect(wrapper.text()).toContain("已加载执行记录 #7 的 1 条日志");
+    expect(wrapper.text()).toContain("连接器投递完成");
     expect(wrapper.text()).toContain('"deliveryStatus": "SUCCESS"');
     expect(wrapper.text()).toContain('"topic": "synthetic.user.activity"');
   });
@@ -126,6 +126,6 @@ describe("ExecutionsView", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Execution API unavailable");
-    expect(wrapper.text()).toContain("No executions yet");
+    expect(wrapper.text()).toContain("还没有执行记录");
   });
 });

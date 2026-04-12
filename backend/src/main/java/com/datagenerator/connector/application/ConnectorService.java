@@ -48,7 +48,7 @@ public class ConnectorService {
 
     public ConnectorInstance findById(Long id) {
         return connectorRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Connector not found: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("未找到连接器：" + id));
     }
 
     @Transactional
@@ -95,11 +95,11 @@ public class ConnectorService {
     @Transactional
     public ConnectorInstance createExampleFileConnector() {
         ConnectorInstance connector = new ConnectorInstance();
-        connector.setName("Example File Sink");
+        connector.setName("示例文件输出");
         connector.setConnectorType(ConnectorType.FILE);
         connector.setConnectorRole(ConnectorRole.TARGET);
         connector.setStatus(ConnectorStatus.READY);
-        connector.setDescription("Quickstart connector writing preview batches to a local JSONL file path.");
+        connector.setDescription("把预览生成的数据写入本地 JSONL 文件的快速示例连接器。");
         connector.setConfigJson("""
                 {
                   "path": "./output/example-preview.jsonl",
@@ -112,11 +112,11 @@ public class ConnectorService {
     @Transactional
     public ConnectorInstance createExampleHttpConnector() {
         ConnectorInstance connector = new ConnectorInstance();
-        connector.setName("Example HTTP Sink");
+        connector.setName("示例 HTTP 输出");
         connector.setConnectorType(ConnectorType.HTTP);
         connector.setConnectorRole(ConnectorRole.TARGET);
         connector.setStatus(ConnectorStatus.READY);
-        connector.setDescription("Quickstart connector posting generated rows to an HTTP endpoint.");
+        connector.setDescription("把生成数据通过 HTTP 请求投递到目标接口的快速示例连接器。");
         connector.setConfigJson("""
                 {
                   "url": "%s",
@@ -131,11 +131,11 @@ public class ConnectorService {
     @Transactional
     public ConnectorInstance createExampleMysqlConnector() {
         ConnectorInstance connector = new ConnectorInstance();
-        connector.setName("Example MySQL Sink");
+        connector.setName("示例 MySQL 输出");
         connector.setConnectorType(ConnectorType.MYSQL);
         connector.setConnectorRole(ConnectorRole.TARGET);
         connector.setStatus(ConnectorStatus.READY);
-        connector.setDescription("Quickstart connector writing generated rows into a MySQL table defined by job runtime config target.table.");
+        connector.setDescription("把生成数据写入 MySQL 表的快速示例连接器，目标表由任务运行时配置 target.table 指定。");
         connector.setConfigJson("""
                 {
                   "jdbcUrl": "%s",
@@ -149,11 +149,11 @@ public class ConnectorService {
     @Transactional
     public ConnectorInstance createExamplePostgresqlConnector() {
         ConnectorInstance connector = new ConnectorInstance();
-        connector.setName("Example PostgreSQL Sink");
+        connector.setName("示例 PostgreSQL 输出");
         connector.setConnectorType(ConnectorType.POSTGRESQL);
         connector.setConnectorRole(ConnectorRole.TARGET);
         connector.setStatus(ConnectorStatus.READY);
-        connector.setDescription("Quickstart connector writing generated rows into a PostgreSQL table defined by job runtime config target.table.");
+        connector.setDescription("把生成数据写入 PostgreSQL 表的快速示例连接器，目标表由任务运行时配置 target.table 指定。");
         connector.setConfigJson("""
                 {
                   "jdbcUrl": "%s",
@@ -167,11 +167,11 @@ public class ConnectorService {
     @Transactional
     public ConnectorInstance createExampleKafkaConnector() {
         ConnectorInstance connector = new ConnectorInstance();
-        connector.setName("Example Kafka Sink");
+        connector.setName("示例 Kafka 输出");
         connector.setConnectorType(ConnectorType.KAFKA);
         connector.setConnectorRole(ConnectorRole.TARGET);
         connector.setStatus(ConnectorStatus.READY);
-        connector.setDescription("Quickstart connector publishing one JSON message per generated row to a Kafka topic defined by job runtime config target.topic.");
+        connector.setDescription("把每条生成数据作为一条 JSON 消息发送到 Kafka Topic 的快速示例连接器。");
         connector.setConfigJson("""
                 {
                   "bootstrapServers": "%s",

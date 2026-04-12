@@ -139,7 +139,7 @@ class DatasetPreviewServiceTest {
 
         assertThatThrownBy(() -> service.generate(dataset, 5, 1L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Archived datasets cannot be previewed");
+                .hasMessageContaining("已归档的数据集不支持预览");
     }
 
     private DatasetDefinition dataset(String schemaJson) {
