@@ -29,7 +29,7 @@ public class JobExecutionLog extends BaseEntity {
     private String message;
 
     @Lob
-    @Column(name = "detail_json")
+    @Column(name = "detail_json", columnDefinition = "LONGTEXT")
     private String detailJson;
 
     @Column(name = "logged_at", nullable = false)
@@ -42,4 +42,3 @@ public class JobExecutionLog extends BaseEntity {
         }
     }
 }
-

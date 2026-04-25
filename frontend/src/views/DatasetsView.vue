@@ -2,8 +2,7 @@
   <section class="page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">数据集工作台</p>
-        <h2>定义可复用的生成规则，并即时预览模拟结果。</h2>
+        <h2>数据集</h2>
       </div>
       <div class="page-actions">
         <button class="button button--ghost" type="button" @click="createExampleDataset">快速示例数据集</button>
@@ -14,8 +13,7 @@
     <section class="workspace-grid">
       <article class="panel form-panel">
         <div>
-          <p class="eyebrow">{{ selectedDatasetId ? "编辑数据集" : "新建数据集" }}</p>
-          <h3>{{ selectedDatasetId ? "更新数据集定义" : "创建新的数据集定义" }}</h3>
+          <h3>{{ selectedDatasetId ? "编辑数据集" : "新建数据集" }}</h3>
         </div>
 
         <div
@@ -110,8 +108,7 @@
       <div class="stack">
         <article class="panel form-panel">
           <div>
-            <p class="eyebrow">预览控制台</p>
-            <h3>按自定义条数和种子预览已保存的数据集。</h3>
+            <h3>预览</h3>
           </div>
 
           <div class="field field--half">
@@ -135,18 +132,19 @@
             >
               生成预览
             </button>
-            <span class="muted">{{ selectedDatasetId ? `当前数据集 #${selectedDatasetId}` : "请先选择一个已保存的数据集" }}</span>
+            <span class="muted">{{ selectedDatasetId ? `数据集 #${selectedDatasetId}` : "未选择数据集" }}</span>
           </div>
 
           <div v-if="previewRows.length" class="preview-block">
-            <p class="eyebrow">预览结果</p>
+            <h3>结果</h3>
             <pre class="code-block">{{ formatJson(previewRows) }}</pre>
           </div>
         </article>
 
-        <section v-if="datasets.length" class="panel-grid">
+        <template v-if="datasets.length">
+          <section class="panel-grid">
           <article
-            v-for="dataset in datasets"
+            v-for="dataset in paginatedDatasets"
             :key="dataset.id"
             class="panel"
             :class="{ 'panel--selected': selectedDatasetId === dataset.id }"
@@ -170,9 +168,18 @@
           </article>
         </section>
 
+        <PaginationBar
+          :page="datasetPage"
+          :page-size="datasetPageSize"
+          :total="datasets.length"
+          noun="个数据集"
+          @update:page="datasetPage = $event"
+          @update:page-size="datasetPageSize = $event"
+        />
+        </template>
+
         <section v-else class="empty-state">
-          <h3>还没有数据集定义</h3>
-          <p>可以先从左侧表单创建，也可以一键加载快速示例数据集来验证生成规则。</p>
+          <h3>暂无数据集</h3>
         </section>
       </div>
     </section>
@@ -180,8 +187,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { apiClient, readApiError, type ApiResponse } from "../api/client";
+import PaginationBar from "../components/PaginationBar.vue";
+import { clampPage, paginateItems } from "../utils/pagination";
 import { labelDatasetStatus } from "../utils/display";
 
 type FeedbackKind = "success" | "error";
@@ -229,12 +238,15 @@ const defaultSampleConfig = JSON.stringify(
 );
 
 const datasets = ref<Dataset[]>([]);
+const datasetPage = ref(1);
+const datasetPageSize = ref(8);
 const selectedDatasetId = ref<number | null>(null);
 const previewRows = ref<Array<Record<string, unknown>>>([]);
 const feedback = reactive<{ kind: FeedbackKind; message: string }>({
   kind: "success",
   message: ""
 });
+const paginatedDatasets = computed(() => paginateItems(datasets.value, datasetPage.value, datasetPageSize.value));
 
 const form = reactive({
   name: "",
@@ -293,8 +305,17 @@ function resetForm() {
   clearFeedback();
 }
 
+function focusDatasetPage(datasetId: number) {
+  const datasetIndex = datasets.value.findIndex((dataset) => dataset.id === datasetId);
+  if (datasetIndex < 0) {
+    return;
+  }
+  datasetPage.value = Math.floor(datasetIndex / datasetPageSize.value) + 1;
+}
+
 function selectDataset(dataset: Dataset) {
   selectedDatasetId.value = dataset.id;
+  focusDatasetPage(dataset.id);
   form.name = dataset.name;
   form.category = dataset.category ?? "";
   form.version = dataset.version;
@@ -310,6 +331,9 @@ async function loadDatasets() {
   try {
     const response = await apiClient.get<ApiResponse<Dataset[]>>("/datasets");
     datasets.value = response.data.success ? response.data.data : [];
+    if (feedback.kind === "error" && feedback.message) {
+      clearFeedback();
+    }
 
     if (selectedDatasetId.value != null) {
       const refreshed = datasets.value.find((dataset) => dataset.id === selectedDatasetId.value);
@@ -399,6 +423,21 @@ async function removeDataset(datasetId: number) {
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
+
+watch(
+  () => datasets.value.length,
+  () => {
+    datasetPage.value = clampPage(datasetPage.value, datasets.value.length, datasetPageSize.value);
+  }
+);
+
+watch(datasetPageSize, () => {
+  if (selectedDatasetId.value !== null) {
+    focusDatasetPage(selectedDatasetId.value);
+    return;
+  }
+  datasetPage.value = 1;
+});
 
 onMounted(async () => {
   resetForm();

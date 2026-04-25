@@ -3,7 +3,7 @@ services:
     image: mysql:8.4
     container_name: mdg-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: 123456
       MYSQL_DATABASE: multisource_data_generator
     ports:
       - "3306:3306"
@@ -27,6 +27,43 @@ services:
     volumes:
       - mdg_postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mdg-sqlserver
+    profiles: ["sqlserver"]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MDG_SQLSERVER_SA_PASSWORD:-MdgSqlServer123!}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mdg_sqlserver_data:/var/opt/mssql
+      - ./infra/sqlserver/init:/work/init:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  oracle:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: mdg-oracle
+    profiles: ["oracle"]
+    environment:
+      ORACLE_PWD: ${MDG_ORACLE_SYS_PASSWORD:-MdgOracle123!}
+      ORACLE_CHARACTERSET: AL32UTF8
+    ports:
+      - "1521:1521"
+      - "5500:5500"
+    volumes:
+      - mdg_oracle_data:/opt/oracle/oradata
+      - ./infra/oracle/setup:/opt/oracle/scripts/setup:ro
+      - ./infra/oracle/setup:/opt/oracle/scripts/startup:ro
 
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v24.1.15
@@ -82,7 +119,7 @@ services:
     environment:
       APP_DATASOURCE_URL: jdbc:mysql://mysql:3306/multisource_data_generator?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       APP_DATASOURCE_USERNAME: root
-      APP_DATASOURCE_PASSWORD: root
+      APP_DATASOURCE_PASSWORD: 123456
       MDG_QUICKSTART_HTTP_BASE_URL: http://http-echo
       MDG_QUICKSTART_MYSQL_JDBC_URL: jdbc:mysql://mysql:3306/demo_sink?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       MDG_QUICKSTART_POSTGRESQL_JDBC_URL: jdbc:postgresql://postgres:5432/demo_sink
@@ -101,3 +138,5 @@ services:
 volumes:
   mdg_mysql_data:
   mdg_postgres_data:
+  mdg_sqlserver_data:
+  mdg_oracle_data:

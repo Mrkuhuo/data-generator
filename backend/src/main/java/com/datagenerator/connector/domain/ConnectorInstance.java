@@ -36,7 +36,7 @@ public class ConnectorInstance extends BaseEntity {
     private String description;
 
     @Lob
-    @Column(name = "config_json", nullable = false)
+    @Column(name = "config_json", nullable = false, columnDefinition = "LONGTEXT")
     private String configJson = "{}";
 
     @Column(name = "last_test_status", length = 120)
@@ -46,7 +46,7 @@ public class ConnectorInstance extends BaseEntity {
     private String lastTestMessage;
 
     @Lob
-    @Column(name = "last_test_details_json")
+    @Column(name = "last_test_details_json", columnDefinition = "LONGTEXT")
     private String lastTestDetailsJson;
 
     @Column(name = "last_tested_at")

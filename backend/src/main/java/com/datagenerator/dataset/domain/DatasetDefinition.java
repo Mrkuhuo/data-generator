@@ -33,11 +33,10 @@ public class DatasetDefinition extends BaseEntity {
     private String description;
 
     @Lob
-    @Column(name = "schema_json", nullable = false)
+    @Column(name = "schema_json", nullable = false, columnDefinition = "LONGTEXT")
     private String schemaJson = "{}";
 
     @Lob
-    @Column(name = "sample_config_json", nullable = false)
+    @Column(name = "sample_config_json", nullable = false, columnDefinition = "LONGTEXT")
     private String sampleConfigJson = "{}";
 }
-

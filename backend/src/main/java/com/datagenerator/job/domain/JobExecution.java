@@ -47,6 +47,6 @@ public class JobExecution extends BaseEntity {
     private String errorSummary;
 
     @Lob
-    @Column(name = "delivery_details_json")
+    @Column(name = "delivery_details_json", columnDefinition = "LONGTEXT")
     private String deliveryDetailsJson;
 }

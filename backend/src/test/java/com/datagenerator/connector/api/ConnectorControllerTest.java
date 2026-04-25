@@ -40,7 +40,6 @@ class ConnectorControllerTest {
                                 {
                                   "name": "Warehouse sink",
                                   "connectorType": "MYSQL",
-                                  "connectorRole": "TARGET",
                                   "status": "READY",
                                   "description": "Primary relational warehouse sink",
                                   "configJson": " "
@@ -80,7 +79,6 @@ class ConnectorControllerTest {
                         .content(objectMapper.writeValueAsString(new ConnectorUpsertRequest(
                                 "Warehouse sink",
                                 ConnectorType.MYSQL,
-                                ConnectorRole.TARGET,
                                 ConnectorStatus.READY,
                                 "Primary warehouse",
                                 "{\"jdbcUrl\":\"jdbc:mysql://localhost:3306/demo\"}"

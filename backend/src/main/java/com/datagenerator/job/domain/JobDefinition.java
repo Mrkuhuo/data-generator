@@ -43,7 +43,7 @@ public class JobDefinition extends BaseEntity {
     private JobStatus status = JobStatus.DRAFT;
 
     @Lob
-    @Column(name = "runtime_config_json", nullable = false)
+    @Column(name = "runtime_config_json", nullable = false, columnDefinition = "LONGTEXT")
     private String runtimeConfigJson = "{}";
 
     @Column(name = "last_triggered_at")

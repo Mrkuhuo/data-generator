@@ -24,7 +24,7 @@ class PlatformOverviewControllerTest {
 
     @Test
     void getOverview_shouldReturnPlatformCounts() throws Exception {
-        given(overviewService.getOverview()).willReturn(new PlatformOverviewResponse(5, 4, 3, 2));
+        given(overviewService.getOverview()).willReturn(new PlatformOverviewResponse(5, 4, 3, 2, 6, 7, 8));
 
         mockMvc.perform(get("/api/overview"))
                 .andExpect(status().isOk())
@@ -32,6 +32,9 @@ class PlatformOverviewControllerTest {
                 .andExpect(jsonPath("$.data.connectorCount").value(5))
                 .andExpect(jsonPath("$.data.datasetCount").value(4))
                 .andExpect(jsonPath("$.data.jobCount").value(3))
-                .andExpect(jsonPath("$.data.executionCount").value(2));
+                .andExpect(jsonPath("$.data.executionCount").value(2))
+                .andExpect(jsonPath("$.data.connectionCount").value(6))
+                .andExpect(jsonPath("$.data.writeTaskCount").value(7))
+                .andExpect(jsonPath("$.data.writeExecutionCount").value(8));
     }
 }

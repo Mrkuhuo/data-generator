@@ -1,7 +1,11 @@
 backend/target/
 backend/output/
+backend/.runtime/
 frontend/node_modules/
 frontend/dist/
+node_modules/
+.runtime/
+.codex-logs/
 .idea/
 .vscode/
 *.iml
@@ -9,3 +13,5 @@ Thumbs.db
 .DS_Store
 *.run-*.log
 *.run-*.pid
+*.log
+*.err.log

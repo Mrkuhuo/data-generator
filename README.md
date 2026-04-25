@@ -2,6 +2,12 @@
 
 This repository is being rewritten into a platform that generates synthetic data for multiple delivery targets instead of a MySQL/Kafka-specific demo.
 
+## Documentation
+
+- Chinese operation manual: `docs/平台操作手册.md`
+- SQL Server / Oracle integration guide: `docs/目标数据库联调指南.md`
+- Kafka complex API validation guide: `docs/Kafka复杂消息API验收说明.md`
+
 ## Current status
 
 - Legacy implementation is archived under `legacy/backend-legacy` and `legacy/frontend-legacy`
@@ -54,6 +60,18 @@ npm run dev
 docker compose up -d mysql postgres redpanda redpanda-init http-echo
 ```
 
+Optional target databases for real integration:
+
+```bash
+docker compose --profile sqlserver up -d sqlserver
+docker exec -i mdg-sqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "MdgSqlServer123!" -i /work/init/01_demo_sink.sql
+```
+
+```bash
+docker login container-registry.oracle.com
+docker compose --profile oracle up -d oracle
+```
+
 The backend expects these environment variables when not using the defaults:
 
 - `APP_DATASOURCE_URL`
@@ -75,10 +93,13 @@ The compose file now provisions:
 
 - `mysql`: application database plus `demo_sink.synthetic_user_activity`
 - `postgres`: `demo_sink.synthetic_user_activity`
+- `sqlserver` (optional profile): local SQL Server instance on `1433`, plus sample init SQL under `infra/sqlserver/init`
+- `oracle` (optional profile): local Oracle Database Free instance on `1521`, with setup scripts under `infra/oracle/setup`
 - `redpanda`: Kafka-compatible broker with topic `synthetic.user.activity`
 - `http-echo`: simple HTTP request echo target on port `9000`
 
 If your MySQL or PostgreSQL volumes were created before the new init scripts were added, recreate those volumes once so the demo sink tables are initialized.
+For SQL Server and Oracle, read `docs/目标数据库联调指南.md` before first startup. Oracle images come from Oracle Container Registry and may require login and a longer first boot time.
 
 ## API entry points
 
@@ -252,6 +273,8 @@ Validated in the current workspace:
 
 - `backend`: `mvn -DskipTests compile`
 - `frontend`: `npm run build`
+- `frontend`: `npm run test:run`
+- `backend`: `mvn test`
 
 Not validated in the current workspace:
 

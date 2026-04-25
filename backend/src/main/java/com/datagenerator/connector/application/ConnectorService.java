@@ -185,7 +185,7 @@ public class ConnectorService {
     private void apply(ConnectorInstance connector, ConnectorUpsertRequest request) {
         connector.setName(request.name());
         connector.setConnectorType(request.connectorType());
-        connector.setConnectorRole(request.connectorRole());
+        connector.setConnectorRole(ConnectorRole.TARGET);
         connector.setStatus(request.status());
         connector.setDescription(request.description());
         connector.setConfigJson(request.configJson());

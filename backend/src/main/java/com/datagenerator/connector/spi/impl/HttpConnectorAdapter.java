@@ -24,13 +24,9 @@ import org.springframework.stereotype.Component;
 public class HttpConnectorAdapter implements ConnectorAdapter {
 
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient;
 
     public HttpConnectorAdapter(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .build();
     }
 
     @Override
@@ -172,10 +168,16 @@ public class HttpConnectorAdapter implements ConnectorAdapter {
         HttpRequest request = builder
                 .method(method, HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        return createHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private boolean isSuccess(int statusCode) {
         return statusCode >= 200 && statusCode < 300;
+    }
+
+    private HttpClient createHttpClient() {
+        return HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
     }
 }

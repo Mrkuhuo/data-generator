@@ -1,95 +1,137 @@
 const connectorTypeLabels: Record<string, string> = {
-  FILE: "文件",
+  FILE: "\u6587\u4ef6",
   HTTP: "HTTP",
   MYSQL: "MySQL",
   POSTGRESQL: "PostgreSQL",
   KAFKA: "Kafka"
 };
 
-const connectorRoleLabels: Record<string, string> = {
-  SOURCE: "源端",
-  TARGET: "目标端",
-  BOTH: "双向"
-};
-
 const connectorStatusLabels: Record<string, string> = {
-  READY: "就绪",
-  DRAFT: "草稿",
-  DISABLED: "已禁用"
+  READY: "\u5c31\u7eea",
+  DRAFT: "\u8349\u7a3f",
+  DISABLED: "\u5df2\u7981\u7528"
 };
 
 const datasetStatusLabels: Record<string, string> = {
-  READY: "就绪",
-  DRAFT: "草稿",
-  ARCHIVED: "已归档"
+  READY: "\u5c31\u7eea",
+  DRAFT: "\u8349\u7a3f",
+  ARCHIVED: "\u5df2\u5f52\u6863"
 };
 
 const jobStatusLabels: Record<string, string> = {
-  READY: "就绪",
-  DRAFT: "草稿",
-  PAUSED: "已暂停",
-  DISABLED: "已禁用",
-  RUNNING: "运行中"
+  READY: "\u5c31\u7eea",
+  DRAFT: "\u8349\u7a3f",
+  PAUSED: "\u5df2\u6682\u505c",
+  DISABLED: "\u5df2\u7981\u7528",
+  RUNNING: "\u8fd0\u884c\u4e2d"
 };
 
 const jobScheduleTypeLabels: Record<string, string> = {
-  MANUAL: "手动",
-  ONCE: "单次",
-  CRON: "定时"
+  MANUAL: "\u624b\u52a8",
+  ONCE: "\u5355\u6b21",
+  CRON: "\u5b9a\u65f6"
 };
 
 const jobWriteStrategyLabels: Record<string, string> = {
-  APPEND: "追加",
-  OVERWRITE: "覆盖",
-  STREAM: "流式",
-  UPSERT: "更新插入"
+  APPEND: "\u8ffd\u52a0",
+  OVERWRITE: "\u8986\u76d6",
+  STREAM: "\u6d41\u5f0f",
+  UPSERT: "\u66f4\u65b0\u63d2\u5165"
 };
 
 const schedulerStateLabels: Record<string, string> = {
-  MANUAL: "手动触发",
-  DISABLED: "已禁用",
-  COMPLETED: "已完成",
-  COMPLETE: "已完成",
-  UNSCHEDULED: "未调度",
-  NORMAL: "正常",
-  PAUSED: "已暂停",
-  BLOCKED: "阻塞",
-  ERROR: "异常",
-  READY: "就绪",
-  DRAFT: "草稿",
-  NONE: "无"
+  MANUAL: "\u624b\u52a8\u89e6\u53d1",
+  DISABLED: "\u5df2\u7981\u7528",
+  COMPLETED: "\u5df2\u5b8c\u6210",
+  COMPLETE: "\u5df2\u5b8c\u6210",
+  UNSCHEDULED: "\u672a\u8c03\u5ea6",
+  NORMAL: "\u6b63\u5e38",
+  PAUSED: "\u5df2\u6682\u505c",
+  BLOCKED: "\u963b\u585e",
+  ERROR: "\u5f02\u5e38",
+  READY: "\u5c31\u7eea",
+  DRAFT: "\u8349\u7a3f",
+  NONE: "\u65e0",
+  STOPPED: "\u5df2\u505c\u6b62"
 };
 
 const executionStatusLabels: Record<string, string> = {
-  PENDING: "待执行",
-  RUNNING: "执行中",
-  PARTIAL_SUCCESS: "部分成功",
-  SUCCESS: "成功",
-  FAILED: "失败",
-  CANCELED: "已取消"
+  PENDING: "\u5f85\u6267\u884c",
+  RUNNING: "\u6267\u884c\u4e2d",
+  PARTIAL_SUCCESS: "\u90e8\u5206\u6210\u529f",
+  SUCCESS: "\u6210\u529f",
+  FAILED: "\u5931\u8d25",
+  CANCELED: "\u5df2\u53d6\u6d88"
 };
 
 const triggerTypeLabels: Record<string, string> = {
-  MANUAL: "手动",
-  SCHEDULED: "调度",
-  API: "接口"
+  MANUAL: "\u624b\u52a8",
+  SCHEDULED: "\u8c03\u5ea6",
+  API: "API",
+  CONTINUOUS: "\u6301\u7eed\u5199\u5165"
 };
 
 const logLevelLabels: Record<string, string> = {
-  INFO: "信息",
-  WARN: "警告",
-  ERROR: "错误"
+  INFO: "\u4fe1\u606f",
+  WARN: "\u8b66\u544a",
+  ERROR: "\u9519\u8bef"
 };
 
 const connectorProbeStatusLabels: Record<string, string> = {
-  READY: "就绪",
-  UNREACHABLE: "不可达",
-  INVALID_URL: "地址无效",
-  NOT_WRITABLE: "不可写",
-  INVALID_PATH: "路径无效",
-  PATH_CREATE_FAILED: "目录创建失败",
-  SUCCESS: "成功",
-  FAILED: "失败"
+  READY: "\u5c31\u7eea",
+  UNREACHABLE: "\u4e0d\u53ef\u8fbe",
+  INVALID_URL: "\u5730\u5740\u65e0\u6548",
+  NOT_WRITABLE: "\u4e0d\u53ef\u5199",
+  INVALID_PATH: "\u8def\u5f84\u65e0\u6548",
+  PATH_CREATE_FAILED: "\u76ee\u5f55\u521b\u5efa\u5931\u8d25",
+  SUCCESS: "\u6210\u529f",
+  FAILED: "\u5931\u8d25"
+};
+
+const databaseTypeLabels: Record<string, string> = {
+  MYSQL: "MySQL",
+  POSTGRESQL: "PostgreSQL",
+  SQLSERVER: "SQL Server",
+  ORACLE: "Oracle",
+  KAFKA: "Kafka"
+};
+
+export const supportedDatabaseTypes = Object.freeze(Object.keys(databaseTypeLabels));
+
+const writeTaskStatusLabels: Record<string, string> = {
+  READY: "\u5c31\u7eea",
+  DRAFT: "\u8349\u7a3f",
+  PAUSED: "\u5df2\u6682\u505c",
+  DISABLED: "\u5df2\u7981\u7528",
+  RUNNING: "\u8fd0\u884c\u4e2d"
+};
+
+const writeModeLabels: Record<string, string> = {
+  APPEND: "\u8ffd\u52a0",
+  OVERWRITE: "\u8986\u76d6"
+};
+
+const writeTaskScheduleTypeLabels: Record<string, string> = {
+  MANUAL: "\u624b\u52a8\u6267\u884c",
+  ONCE: "\u5355\u6b21\u5b9a\u65f6",
+  CRON: "\u5468\u671f\u5b9a\u65f6",
+  INTERVAL: "\u6301\u7eed\u5199\u5165"
+};
+
+const tableModeLabels: Record<string, string> = {
+  USE_EXISTING: "\u4f7f\u7528\u5df2\u6709\u8868",
+  CREATE_IF_MISSING: "\u4e0d\u5b58\u5728\u5219\u521b\u5efa"
+};
+
+const columnGeneratorTypeLabels: Record<string, string> = {
+  SEQUENCE: "\u9012\u589e\u5e8f\u5217",
+  RANDOM_INT: "\u968f\u673a\u6574\u6570",
+  RANDOM_DECIMAL: "\u968f\u673a\u5c0f\u6570",
+  STRING: "\u5b57\u7b26\u4e32",
+  ENUM: "\u679a\u4e3e",
+  BOOLEAN: "\u5e03\u5c14",
+  DATETIME: "\u65e5\u671f\u65f6\u95f4",
+  UUID: "UUID"
 };
 
 function labelOf(labels: Record<string, string>, value: string | null | undefined, fallback = "-") {
@@ -101,10 +143,6 @@ function labelOf(labels: Record<string, string>, value: string | null | undefine
 
 export function labelConnectorType(value: string | null | undefined) {
   return labelOf(connectorTypeLabels, value);
-}
-
-export function labelConnectorRole(value: string | null | undefined) {
-  return labelOf(connectorRoleLabels, value);
 }
 
 export function labelConnectorStatus(value: string | null | undefined) {
@@ -128,7 +166,7 @@ export function labelJobWriteStrategy(value: string | null | undefined) {
 }
 
 export function labelSchedulerState(value: string | null | undefined) {
-  return labelOf(schedulerStateLabels, value, "未设置");
+  return labelOf(schedulerStateLabels, value, "\u672a\u8bbe\u7f6e");
 }
 
 export function labelExecutionStatus(value: string | null | undefined) {
@@ -144,7 +182,31 @@ export function labelLogLevel(value: string | null | undefined) {
 }
 
 export function labelConnectorProbeStatus(value: string | null | undefined) {
-  return labelOf(connectorProbeStatusLabels, value, "未执行");
+  return labelOf(connectorProbeStatusLabels, value, "\u672a\u6267\u884c");
+}
+
+export function labelDatabaseType(value: string | null | undefined) {
+  return labelOf(databaseTypeLabels, value);
+}
+
+export function labelWriteTaskStatus(value: string | null | undefined) {
+  return labelOf(writeTaskStatusLabels, value);
+}
+
+export function labelWriteMode(value: string | null | undefined) {
+  return labelOf(writeModeLabels, value);
+}
+
+export function labelWriteTaskScheduleType(value: string | null | undefined) {
+  return labelOf(writeTaskScheduleTypeLabels, value);
+}
+
+export function labelTableMode(value: string | null | undefined) {
+  return labelOf(tableModeLabels, value);
+}
+
+export function labelColumnGeneratorType(value: string | null | undefined) {
+  return labelOf(columnGeneratorTypeLabels, value);
 }
 
 export function formatDisplayDate(value: string) {
