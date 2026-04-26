@@ -150,6 +150,28 @@ button {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
+.auth-form,
+.auth-state {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.auth-form input {
+  width: 132px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--ink);
+}
+
+.auth-state span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .panel,
 .stat-card {
   border: 1px solid var(--line);
@@ -1075,6 +1097,12 @@ button {
     grid-template-columns: 1fr 1fr;
   }
 
+  .auth-form,
+  .auth-state {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .stats-grid,
   .panel-grid {
     grid-template-columns: 1fr 1fr;
@@ -1108,6 +1136,10 @@ button {
   .nav--inline,
   .nav--tabs {
     grid-template-columns: 1fr;
+  }
+
+  .auth-form input {
+    width: 100%;
   }
 
   .stats-grid,

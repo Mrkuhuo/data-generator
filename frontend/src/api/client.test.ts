@@ -1,10 +1,39 @@
 import type { AxiosError } from "axios";
-import { describe, expect, it } from "vitest";
-import { apiClient, readApiError, REQUEST_TIMEOUT } from "./client";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  apiClient,
+  AUTH_STORAGE_KEY,
+  clearApiCredentials,
+  getApiCredentials,
+  readApiError,
+  REQUEST_TIMEOUT,
+  setApiCredentials
+} from "./client";
+
+afterEach(() => {
+  clearApiCredentials();
+});
 
 describe("apiClient", () => {
   it("uses the shared default timeout", () => {
     expect(apiClient.defaults.timeout).toBe(REQUEST_TIMEOUT.default);
+  });
+
+  it("stores basic auth credentials for request interceptors", () => {
+    setApiCredentials("admin", "123456");
+
+    expect(getApiCredentials()).toEqual({
+      username: "admin",
+      token: "YWRtaW46MTIzNDU2"
+    });
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toContain("admin");
+  });
+
+  it("clears invalid auth storage values", () => {
+    localStorage.setItem(AUTH_STORAGE_KEY, "{invalid");
+
+    expect(getApiCredentials()).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
 });
 
@@ -30,6 +59,19 @@ describe("readApiError", () => {
     } as AxiosError;
 
     expect(readApiError(error)).toBe("无法连接后端服务，请确认接口服务已经启动。");
+  });
+
+  it("returns a friendly unauthorized message", () => {
+    const error = {
+      isAxiosError: true,
+      message: "Request failed with status code 401",
+      response: {
+        status: 401,
+        data: {}
+      }
+    } as AxiosError;
+
+    expect(readApiError(error)).toBe("登录已失效或账号密码错误，请在顶部重新登录。");
   });
 
   it("returns a friendly timeout message", () => {

@@ -39,6 +39,7 @@ import com.datagenerator.task.repository.WriteTaskRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -64,6 +65,7 @@ public class WriteTaskGroupService {
     private final WriteTaskGroupPreviewService previewService;
     private final WriteTaskExecutionPreparationService executionPreparationService;
     private final WriteTaskDeliveryWriterRegistry writerRegistry;
+    private final WriteTaskJdbcWriter jdbcWriter;
     private final WriteTaskDefinitionNormalizationService definitionNormalizationService;
     private final ObjectMapper objectMapper;
 
@@ -77,6 +79,7 @@ public class WriteTaskGroupService {
             WriteTaskGroupPreviewService previewService,
             WriteTaskExecutionPreparationService executionPreparationService,
             WriteTaskDeliveryWriterRegistry writerRegistry,
+            WriteTaskJdbcWriter jdbcWriter,
             WriteTaskDefinitionNormalizationService definitionNormalizationService,
             ObjectMapper objectMapper
     ) {
@@ -89,6 +92,7 @@ public class WriteTaskGroupService {
         this.previewService = previewService;
         this.executionPreparationService = executionPreparationService;
         this.writerRegistry = writerRegistry;
+        this.jdbcWriter = jdbcWriter;
         this.definitionNormalizationService = definitionNormalizationService;
         this.objectMapper = objectMapper;
     }
@@ -146,12 +150,10 @@ public class WriteTaskGroupService {
         return previewService.preview(toRequest(group, tasks, relationRepository.findByGroupIdOrderBySortOrderAscIdAsc(id)), tasks, connection, previewCount, seed);
     }
 
-    @Transactional
     public WriteTaskGroupExecutionResponse run(Long id) {
         return runInternal(findById(id), WriteExecutionTriggerType.MANUAL);
     }
 
-    @Transactional
     public WriteTaskGroupExecutionResponse runScheduled(Long id, WriteExecutionTriggerType triggerType) {
         if (triggerType != WriteExecutionTriggerType.SCHEDULED
                 && triggerType != WriteExecutionTriggerType.CONTINUOUS) {
@@ -160,7 +162,6 @@ public class WriteTaskGroupService {
         return runInternal(findById(id), triggerType);
     }
 
-    @Transactional
     public WriteTaskGroupExecutionResponse runInternal(WriteTaskGroup group, WriteExecutionTriggerType triggerType) {
         if (executionRepository.existsByWriteTaskGroupIdAndStatus(group.getId(), WriteExecutionStatus.RUNNING)) {
             throw new IllegalArgumentException("\u5f53\u524d\u5173\u7cfb\u4efb\u52a1\u7ec4\u4ecd\u5728\u6267\u884c\u4e2d\uff0c\u8bf7\u7b49\u5f85\u4e0a\u4e00\u8f6e\u5b8c\u6210\u540e\u518d\u8bd5");
@@ -170,71 +171,35 @@ public class WriteTaskGroupService {
         group.setLastTriggeredAt(startedAt);
         groupRepository.save(group);
 
-        TargetConnection connection = loadConnection(group.getConnectionId());
-        List<WriteTask> tasks = taskRepository.findByGroupIdOrderByIdAsc(group.getId());
-        List<WriteTaskRelation> relations = relationRepository.findByGroupIdOrderBySortOrderAscIdAsc(group.getId());
-        WriteTaskGroupUpsertRequest request = prepareForExecution(toRequest(group, tasks, relations), tasks, connection);
-        List<WriteTask> runtimeTasks = request.tasks() == null
-                ? List.of()
-                : request.tasks().stream().map(task -> toRuntimeTask(task, request.connectionId())).toList();
-
-        WriteTaskGroupGenerationResult generated = previewService.generate(request, runtimeTasks, connection, group.getSeed());
-        WriteTaskDeliveryWriter writer = writerRegistry.get(connection.getDbType());
         WriteTaskGroupExecution execution = new WriteTaskGroupExecution();
         execution.setWriteTaskGroupId(group.getId());
         execution.setTriggerType(triggerType);
         execution.setStatus(WriteExecutionStatus.RUNNING);
         execution.setStartedAt(startedAt);
-        execution.setPlannedTableCount(generated.tables().size());
         execution = executionRepository.save(execution);
 
         List<WriteTaskGroupTableExecution> tableExecutions = new ArrayList<>();
         long totalInserted = 0L;
+        Long generatedSeed = group.getSeed();
+        String deliveryType = "UNKNOWN";
         try {
-            for (WriteTaskTableGenerationResult table : generated.tables()) {
-                WriteTaskGroupTableExecution tableExecution = new WriteTaskGroupTableExecution();
-                tableExecution.setWriteTaskGroupExecutionId(execution.getId());
-                tableExecution.setWriteTaskId(table.task().getId());
-                tableExecution.setTableName(table.task().getTableName());
-                tableExecution.setStatus(WriteExecutionStatus.RUNNING);
-                tableExecution = tableExecutionRepository.save(tableExecution);
+            TargetConnection connection = loadConnection(group.getConnectionId());
+            deliveryType = connection.getDbType().name();
+            List<WriteTask> tasks = taskRepository.findByGroupIdOrderByIdAsc(group.getId());
+            List<WriteTaskRelation> relations = relationRepository.findByGroupIdOrderBySortOrderAscIdAsc(group.getId());
+            WriteTaskGroupUpsertRequest request = prepareForExecution(toRequest(group, tasks, relations), tasks, connection);
+            List<WriteTask> runtimeTasks = request.tasks() == null
+                    ? List.of()
+                    : request.tasks().stream().map(task -> toRuntimeTask(task, request.connectionId())).toList();
 
-                try {
-                    validateGeneratedTable(table);
-                    WriteTaskDeliveryResult result = writer.write(table.task(), connection, table.rows(), execution.getId());
-                    long insertedCount = result.successCount();
-                    WriteExecutionStatus tableStatus = result.errorCount() > 0
-                            ? (result.successCount() > 0 ? WriteExecutionStatus.PARTIAL_SUCCESS : WriteExecutionStatus.FAILED)
-                            : WriteExecutionStatus.SUCCESS;
-                    tableExecution.setStatus(tableStatus);
-                    tableExecution.setInsertedCount(insertedCount);
-                    tableExecution.setNullViolationCount((long) table.nullViolationCount());
-                    tableExecution.setBlankStringCount((long) table.blankStringCount());
-                    tableExecution.setFkMissCount((long) table.foreignKeyMissCount());
-                    tableExecution.setPkDuplicateCount(table.primaryKeyDuplicateCount());
-                    tableExecution.setBeforeWriteRowCount(readLong(result.details().get("beforeWriteRowCount")));
-                    tableExecution.setAfterWriteRowCount(readLong(result.details().get("afterWriteRowCount")));
-                    tableExecution.setSummaryJson(writeJson(result.details()));
-                    totalInserted += insertedCount;
-                } catch (Exception exception) {
-                    tableExecution.setStatus(WriteExecutionStatus.FAILED);
-                    tableExecution.setInsertedCount(0L);
-                    tableExecution.setNullViolationCount((long) table.nullViolationCount());
-                    tableExecution.setBlankStringCount((long) table.blankStringCount());
-                    tableExecution.setFkMissCount((long) table.foreignKeyMissCount());
-                    tableExecution.setPkDuplicateCount(table.primaryKeyDuplicateCount());
-                    tableExecution.setErrorSummary(exception.getMessage());
-                    tableExecution.setSummaryJson(writeJson(Map.of(
-                            "tableName", table.task().getTableName(),
-                            "error", exception.getMessage()
-                    )));
-                    tableExecutionRepository.save(tableExecution);
-                    tableExecutions.add(tableExecution);
-                    throw exception;
-                }
-                tableExecutionRepository.save(tableExecution);
-                tableExecutions.add(tableExecution);
-            }
+            WriteTaskGroupGenerationResult generated = previewService.generate(request, runtimeTasks, connection, group.getSeed());
+            generatedSeed = generated.seed();
+            execution.setPlannedTableCount(generated.tables().size());
+            executionRepository.save(execution);
+
+            totalInserted = connection.getDbType() == DatabaseType.KAFKA
+                    ? writeKafkaTables(connection, execution.getId(), generated.tables(), tableExecutions)
+                    : writeJdbcTablesAtomically(connection, execution.getId(), generated.tables(), tableExecutions);
 
             int successTables = (int) tableExecutions.stream()
                     .filter(item -> item.getStatus() == WriteExecutionStatus.SUCCESS)
@@ -248,12 +213,13 @@ public class WriteTaskGroupService {
             execution.setFailureTableCount(failureTables);
             execution.setInsertedRowCount(totalInserted);
             execution.setFinishedAt(Instant.now());
-            execution.setSummaryJson(writeJson(Map.of(
-                    "groupName", group.getName(),
-                    "triggerType", triggerType.name(),
-                    "deliveryType", connection.getDbType().name(),
-                    "seed", generated.seed(),
-                    "insertedRowCount", totalInserted
+            execution.setSummaryJson(writeJson(executionSummary(
+                    group,
+                    triggerType,
+                    deliveryType,
+                    generatedSeed,
+                    totalInserted,
+                    null
             )));
         } catch (Exception exception) {
             execution.setStatus(WriteExecutionStatus.FAILED);
@@ -263,13 +229,13 @@ public class WriteTaskGroupService {
             execution.setInsertedRowCount(totalInserted);
             execution.setFinishedAt(Instant.now());
             execution.setErrorSummary(exception.getMessage());
-            execution.setSummaryJson(writeJson(Map.of(
-                    "groupName", group.getName(),
-                    "triggerType", triggerType.name(),
-                    "deliveryType", connection.getDbType().name(),
-                    "seed", generated.seed(),
-                    "insertedRowCount", totalInserted,
-                    "error", exception.getMessage()
+            execution.setSummaryJson(writeJson(executionSummary(
+                    group,
+                    triggerType,
+                    deliveryType,
+                    generatedSeed,
+                    totalInserted,
+                    exception.getMessage()
             )));
         }
 
@@ -279,6 +245,169 @@ public class WriteTaskGroupService {
                 .map(item -> WriteTaskGroupTableExecutionResponse.from(item, objectMapper))
                 .toList();
         return WriteTaskGroupExecutionResponse.from(execution, tableResponses);
+    }
+
+    private Map<String, Object> executionSummary(
+            WriteTaskGroup group,
+            WriteExecutionTriggerType triggerType,
+            String deliveryType,
+            Long seed,
+            long insertedRowCount,
+            String error
+    ) {
+        LinkedHashMap<String, Object> summary = new LinkedHashMap<>();
+        summary.put("groupName", group.getName());
+        summary.put("triggerType", triggerType.name());
+        summary.put("deliveryType", deliveryType);
+        summary.put("seed", seed);
+        summary.put("insertedRowCount", insertedRowCount);
+        if (error != null) {
+            summary.put("error", error);
+        }
+        return summary;
+    }
+
+    private long writeKafkaTables(
+            TargetConnection connection,
+            Long executionId,
+            List<WriteTaskTableGenerationResult> tables,
+            List<WriteTaskGroupTableExecution> tableExecutions
+    ) throws Exception {
+        if (tables.isEmpty()) {
+            return 0L;
+        }
+        WriteTaskDeliveryWriter writer = writerRegistry.get(connection.getDbType());
+        long totalInserted = 0L;
+        for (WriteTaskTableGenerationResult table : tables) {
+            WriteTaskGroupTableExecution tableExecution = createTableExecution(executionId, table);
+            tableExecutions.add(tableExecution);
+            try {
+                validateGeneratedTable(table);
+                WriteTaskDeliveryResult result = writer.write(table.task(), connection, table.rows(), executionId);
+                applyTableResult(tableExecution, table, result);
+                totalInserted += result.successCount();
+            } catch (Exception exception) {
+                markTableFailed(tableExecution, table, exception, false);
+                throw exception;
+            }
+            tableExecutionRepository.save(tableExecution);
+        }
+        return totalInserted;
+    }
+
+    private long writeJdbcTablesAtomically(
+            TargetConnection connection,
+            Long executionId,
+            List<WriteTaskTableGenerationResult> tables,
+            List<WriteTaskGroupTableExecution> tableExecutions
+    ) throws Exception {
+        if (tables.isEmpty()) {
+            return 0L;
+        }
+        long totalInserted = 0L;
+        try (Connection jdbcConnection = jdbcWriter.openTransactionalConnection(connection)) {
+            try {
+                for (WriteTaskTableGenerationResult table : tables) {
+                    WriteTaskGroupTableExecution tableExecution = createTableExecution(executionId, table);
+                    tableExecutions.add(tableExecution);
+                    try {
+                        validateGeneratedTable(table);
+                        WriteTaskDeliveryResult result = jdbcWriter.writeWithinTransaction(
+                                table.task(),
+                                connection,
+                                jdbcConnection,
+                                table.rows(),
+                                executionId
+                        );
+                        applyTableResult(tableExecution, table, result);
+                        totalInserted += result.successCount();
+                    } catch (Exception exception) {
+                        markTableFailed(tableExecution, table, exception, true);
+                        throw exception;
+                    }
+                    tableExecutionRepository.save(tableExecution);
+                }
+                jdbcConnection.commit();
+                return totalInserted;
+            } catch (Exception exception) {
+                jdbcConnection.rollback();
+                markJdbcTransactionRolledBack(tableExecutions, exception);
+                throw exception;
+            }
+        }
+    }
+
+    private WriteTaskGroupTableExecution createTableExecution(Long executionId, WriteTaskTableGenerationResult table) {
+        WriteTaskGroupTableExecution tableExecution = new WriteTaskGroupTableExecution();
+        tableExecution.setWriteTaskGroupExecutionId(executionId);
+        tableExecution.setWriteTaskId(table.task().getId());
+        tableExecution.setTableName(table.task().getTableName());
+        tableExecution.setStatus(WriteExecutionStatus.RUNNING);
+        return tableExecutionRepository.save(tableExecution);
+    }
+
+    private void applyTableResult(
+            WriteTaskGroupTableExecution tableExecution,
+            WriteTaskTableGenerationResult table,
+            WriteTaskDeliveryResult result
+    ) {
+        WriteExecutionStatus tableStatus = result.errorCount() > 0
+                ? (result.successCount() > 0 ? WriteExecutionStatus.PARTIAL_SUCCESS : WriteExecutionStatus.FAILED)
+                : WriteExecutionStatus.SUCCESS;
+        tableExecution.setStatus(tableStatus);
+        tableExecution.setInsertedCount(result.successCount());
+        tableExecution.setNullViolationCount((long) table.nullViolationCount());
+        tableExecution.setBlankStringCount((long) table.blankStringCount());
+        tableExecution.setFkMissCount((long) table.foreignKeyMissCount());
+        tableExecution.setPkDuplicateCount(table.primaryKeyDuplicateCount());
+        tableExecution.setBeforeWriteRowCount(readLong(result.details().get("beforeWriteRowCount")));
+        tableExecution.setAfterWriteRowCount(readLong(result.details().get("afterWriteRowCount")));
+        tableExecution.setSummaryJson(writeJson(result.details()));
+    }
+
+    private void markTableFailed(
+            WriteTaskGroupTableExecution tableExecution,
+            WriteTaskTableGenerationResult table,
+            Exception exception,
+            boolean jdbcTransaction
+    ) {
+        tableExecution.setStatus(WriteExecutionStatus.FAILED);
+        tableExecution.setInsertedCount(0L);
+        tableExecution.setNullViolationCount((long) table.nullViolationCount());
+        tableExecution.setBlankStringCount((long) table.blankStringCount());
+        tableExecution.setFkMissCount((long) table.foreignKeyMissCount());
+        tableExecution.setPkDuplicateCount(table.primaryKeyDuplicateCount());
+        tableExecution.setErrorSummary(exception.getMessage());
+        tableExecution.setSummaryJson(writeJson(Map.of(
+                "tableName", table.task().getTableName(),
+                "rolledBack", jdbcTransaction,
+                "error", exception.getMessage()
+        )));
+        tableExecutionRepository.save(tableExecution);
+    }
+
+    private void markJdbcTransactionRolledBack(
+            List<WriteTaskGroupTableExecution> tableExecutions,
+            Exception exception
+    ) {
+        for (WriteTaskGroupTableExecution tableExecution : tableExecutions) {
+            if (tableExecution.getStatus() != WriteExecutionStatus.SUCCESS
+                    && tableExecution.getStatus() != WriteExecutionStatus.PARTIAL_SUCCESS
+                    && tableExecution.getStatus() != WriteExecutionStatus.RUNNING) {
+                continue;
+            }
+            tableExecution.setStatus(WriteExecutionStatus.FAILED);
+            tableExecution.setInsertedCount(0L);
+            tableExecution.setBeforeWriteRowCount(null);
+            tableExecution.setAfterWriteRowCount(null);
+            tableExecution.setErrorSummary("JDBC 多表事务已回滚: " + exception.getMessage());
+            tableExecution.setSummaryJson(writeJson(Map.of(
+                    "tableName", tableExecution.getTableName(),
+                    "rolledBack", true,
+                    "error", exception.getMessage()
+            )));
+            tableExecutionRepository.save(tableExecution);
+        }
     }
 
     public List<WriteTaskGroupExecutionResponse> findExecutions(Long groupId) {

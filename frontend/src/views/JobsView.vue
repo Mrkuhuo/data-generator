@@ -1460,7 +1460,7 @@ function createColumn(partial?: Partial<TaskColumn>): TaskColumn {
     nullableFlag: partial?.nullableFlag ?? true,
     primaryKeyFlag: partial?.primaryKeyFlag ?? false,
     generatorType,
-    generatorConfigJson: partial?.generatorConfigJson ?? JSON.stringify(defaultGeneratorConfig(generatorType, partial?.columnName ?? ""), null, 2),
+    generatorConfigJson: partial?.generatorConfigJson ?? JSON.stringify(defaultGeneratorConfig(generatorType, partial?.columnName ?? "", normalizedType.dbType), null, 2),
     stringCharsetPreset: partial?.stringCharsetPreset ?? null,
     sortOrder: partial?.sortOrder ?? form.columns.length
   };
@@ -1540,7 +1540,7 @@ function createColumnFromDatabase(column: DatabaseColumn, index: number): TaskCo
     nullableFlag: column.nullable,
     primaryKeyFlag: column.primaryKey,
     generatorType,
-    generatorConfigJson: JSON.stringify(defaultGeneratorConfig(generatorType, column.columnName), null, 2),
+    generatorConfigJson: JSON.stringify(defaultGeneratorConfig(generatorType, column.columnName, column.dbType), null, 2),
     sortOrder: index
   });
 }
@@ -1871,7 +1871,7 @@ function updateGeneratorCharsetPreset(column: TaskColumn, event: Event) {
   column.stringCharsetPreset = "CUSTOM";
 }
 
-function defaultGeneratorConfig(generatorType: GeneratorType, columnName = "") {
+function defaultGeneratorConfig(generatorType: GeneratorType, columnName = "", dbType = "") {
   switch (generatorType) {
     case "SEQUENCE":
       return { start: 1, step: 1 };
@@ -1889,6 +1889,9 @@ function defaultGeneratorConfig(generatorType: GeneratorType, columnName = "") {
     case "BOOLEAN":
       return { trueRate: 0.5 };
     case "DATETIME":
+      if (dbType.trim().toUpperCase() === "DATE") {
+        return { from: defaultGeneratorFrom(), to: defaultGeneratorTo(), dateOnly: true };
+      }
       return { from: defaultGeneratorFrom(), to: defaultGeneratorTo() };
     case "UUID":
       return {};
@@ -1897,7 +1900,7 @@ function defaultGeneratorConfig(generatorType: GeneratorType, columnName = "") {
 
 function resetGeneratorConfig(column: TaskColumn) {
   column.stringCharsetPreset = null;
-  writeGeneratorConfig(column, defaultGeneratorConfig(column.generatorType, column.columnName));
+  writeGeneratorConfig(column, defaultGeneratorConfig(column.generatorType, column.columnName, column.dbType));
 }
 
 function supportsLength(column: TaskColumn) {

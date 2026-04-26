@@ -107,7 +107,11 @@ public class WriteTaskValueGenerator {
             throw new IllegalArgumentException("时间生成规则中 to 不能早于 from");
         }
         long offset = (long) (random.nextDouble() * (to.toEpochMilli() - from.toEpochMilli() + 1));
-        return Instant.ofEpochMilli(from.toEpochMilli() + offset).toString();
+        Instant generated = Instant.ofEpochMilli(from.toEpochMilli() + offset);
+        if (asBoolean(config.get("dateOnly"), false)) {
+            return generated.atZone(ZoneOffset.UTC).toLocalDate().toString();
+        }
+        return generated.toString();
     }
 
     private Instant parseInstant(Object value, Instant fallback) {
@@ -154,5 +158,15 @@ public class WriteTaskValueGenerator {
             return number.doubleValue();
         }
         return Double.parseDouble(value.toString());
+    }
+
+    private boolean asBoolean(Object value, boolean fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        return Boolean.parseBoolean(value.toString());
     }
 }

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class KafkaConnectionSupportTest {
 
-    private final KafkaConnectionSupport support = new KafkaConnectionSupport();
+    private final KafkaConnectionSupport support = new KafkaConnectionSupport(new TargetConnectionSecretCodec("test-secret-key"));
 
     @Test
     void buildProducerProperties_shouldApplyFailFastDefaults() {

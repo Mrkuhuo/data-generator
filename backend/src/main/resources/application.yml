@@ -53,3 +53,13 @@ springdoc:
 logging:
   level:
     com.datagenerator: info
+
+mdg:
+  security:
+    enabled: ${MDG_SECURITY_ENABLED:true}
+    username: ${MDG_SECURITY_USERNAME:admin}
+    password: ${MDG_SECURITY_PASSWORD:123456}
+  secret:
+    key: ${MDG_SECRET_KEY:local-dev-secret-change-me}
+  legacy:
+    enabled: ${MDG_LEGACY_ENABLED:false}

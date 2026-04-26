@@ -43,15 +43,18 @@ class TargetConnectionServiceTest {
     private KafkaConnectionSupport kafkaConnectionSupport;
 
     private TargetConnectionService service;
+    private TargetConnectionSecretCodec secretCodec;
 
     @BeforeEach
     void setUp() {
+        secretCodec = new TargetConnectionSecretCodec("test-secret-key");
         service = new TargetConnectionService(
                 repository,
                 connectionProbeService,
                 tableSchemaIntrospectionService,
                 connectionJdbcSupport,
-                kafkaConnectionSupport
+                kafkaConnectionSupport,
+                secretCodec
         );
         lenient().when(repository.save(any(TargetConnection.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -90,6 +93,29 @@ class TargetConnectionServiceTest {
         assertThat(probed.getPasswordValue()).isEqualTo("existing-secret");
         assertThat(probed.getHost()).isEqualTo("127.0.0.1");
         assertThat(probed.getJdbcParams()).isEqualTo("normalized");
+    }
+
+    @Test
+    void create_shouldEncryptPasswordForStorage() {
+        when(connectionJdbcSupport.normalizeParamsForStorage(eq(DatabaseType.MYSQL), any())).thenReturn("normalized");
+
+        TargetConnection connection = service.create(new TargetConnectionUpsertRequest(
+                "订单库",
+                DatabaseType.MYSQL,
+                "127.0.0.1",
+                3306,
+                "synthetic_demo_target",
+                null,
+                "root",
+                "123456",
+                "useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai",
+                null,
+                TargetConnectionStatus.READY,
+                "测试"
+        ));
+
+        assertThat(connection.getPasswordValue()).startsWith("enc:v1:");
+        assertThat(secretCodec.decryptForUse(connection.getPasswordValue())).isEqualTo("123456");
     }
 
     @Test

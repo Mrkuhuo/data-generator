@@ -5,6 +5,7 @@ import com.datagenerator.connector.application.ConnectorService;
 import com.datagenerator.connector.domain.ConnectorInstance;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/connectors")
+@ConditionalOnProperty(name = "mdg.legacy.enabled", havingValue = "true")
 public class ConnectorController {
 
     private final ConnectorService connectorService;

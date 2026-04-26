@@ -15,12 +15,13 @@ import org.junit.jupiter.api.Test;
 
 class ConnectionJdbcSupportTest {
 
+    private final TargetConnectionSecretCodec secretCodec = new TargetConnectionSecretCodec("test-secret-key");
     private final ConnectionJdbcSupport support = new ConnectionJdbcSupport(new DatabaseDialectRegistry(List.of(
             new MysqlDatabaseDialect(),
             new PostgresqlDatabaseDialect(),
             new SqlServerDatabaseDialect(),
             new OracleDatabaseDialect()
-    )));
+    )), secretCodec);
 
     @Test
     void normalizeParamsForStorage_shouldProvideUtf8DefaultsForMysql() {

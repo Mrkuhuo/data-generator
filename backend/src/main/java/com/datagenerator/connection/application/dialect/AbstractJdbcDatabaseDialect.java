@@ -122,7 +122,7 @@ public abstract class AbstractJdbcDatabaseDialect implements DatabaseDialect {
             String tableName
     ) throws SQLException {
         if (tableName == null || tableName.isBlank()) {
-            throw new IllegalArgumentException("tableName 涓嶈兘涓虹┖");
+            throw new IllegalArgumentException("tableName 不能为空");
         }
 
         DatabaseMetaData metadata = connection.getMetaData();

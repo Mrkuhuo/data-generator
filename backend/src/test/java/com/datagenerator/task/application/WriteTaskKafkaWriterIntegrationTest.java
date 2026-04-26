@@ -3,6 +3,7 @@ package com.datagenerator.task.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.datagenerator.connection.application.KafkaConnectionSupport;
+import com.datagenerator.connection.application.TargetConnectionSecretCodec;
 import com.datagenerator.connection.domain.DatabaseType;
 import com.datagenerator.connection.domain.TargetConnection;
 import com.datagenerator.task.domain.TableMode;
@@ -50,7 +51,10 @@ class WriteTaskKafkaWriterIntegrationTest {
         createTopic(topic, 3);
 
         ObjectMapper objectMapper = new ObjectMapper();
-        WriteTaskKafkaWriter writer = new WriteTaskKafkaWriter(new KafkaConnectionSupport(), objectMapper);
+        WriteTaskKafkaWriter writer = new WriteTaskKafkaWriter(
+                new KafkaConnectionSupport(new TargetConnectionSecretCodec("test-secret-key")),
+                objectMapper
+        );
 
         TargetConnection connection = new TargetConnection();
         connection.setName("Embedded Kafka");
@@ -138,7 +142,10 @@ class WriteTaskKafkaWriterIntegrationTest {
         createTopic(topic, 1);
 
         ObjectMapper objectMapper = new ObjectMapper();
-        WriteTaskKafkaWriter writer = new WriteTaskKafkaWriter(new KafkaConnectionSupport(), objectMapper);
+        WriteTaskKafkaWriter writer = new WriteTaskKafkaWriter(
+                new KafkaConnectionSupport(new TargetConnectionSecretCodec("test-secret-key")),
+                objectMapper
+        );
 
         TargetConnection connection = new TargetConnection();
         connection.setName("Embedded Kafka");
@@ -204,7 +211,10 @@ class WriteTaskKafkaWriterIntegrationTest {
         createTopic(topic, 1);
 
         ObjectMapper objectMapper = new ObjectMapper();
-        WriteTaskKafkaWriter writer = new WriteTaskKafkaWriter(new KafkaConnectionSupport(), objectMapper);
+        WriteTaskKafkaWriter writer = new WriteTaskKafkaWriter(
+                new KafkaConnectionSupport(new TargetConnectionSecretCodec("test-secret-key")),
+                objectMapper
+        );
 
         TargetConnection connection = new TargetConnection();
         connection.setName("Embedded Kafka");

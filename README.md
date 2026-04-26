@@ -1,52 +1,209 @@
-# Multisource Data Generator
+# 多数据源模拟数据生成器
 
-This repository is being rewritten into a platform that generates synthetic data for multiple delivery targets instead of a MySQL/Kafka-specific demo.
+一个面向中文场景的模拟数据写入平台。
 
-## Documentation
+当前版本的核心目标很明确：
 
-- Chinese operation manual: `docs/平台操作手册.md`
-- SQL Server / Oracle integration guide: `docs/目标数据库联调指南.md`
-- Kafka complex API validation guide: `docs/Kafka复杂消息API验收说明.md`
+1. 连接目标数据源
+2. 选择已有表，或新建目标表
+3. 配置字段与生成规则
+4. 执行单次、持续或定时写入
+5. 查看写入结果、前后条数和校验信息
 
-## Current status
+项目已经从早期演示代码重构为可实际联调的多目标端数据生成平台，重点覆盖数据库写入、关系任务、Kafka 复杂 JSON 消息和执行结果回溯。
 
-- Legacy implementation is archived under `legacy/backend-legacy` and `legacy/frontend-legacy`
-- New backend foundation is in `backend/`
-- New frontend shell is in `frontend/`
-- Real runtime delivery is implemented for file, HTTP, MySQL, PostgreSQL, and Kafka
-- Quartz-backed scheduling, pause/resume/disable controls, and execution snapshots are now wired into the rebuilt platform
-- The new schema now models:
-  - connector instances
-  - dataset definitions
-  - job definitions
-  - job executions
-  - job execution logs
+## 本次更新总结
 
-## Target product shape
+- 完成后端重构，新增目标连接、写入任务、关系任务、执行记录四条主线能力
+- 前端重构为中文工作台，统一为连接管理、写入任务、关系任务、执行记录的使用路径
+- 支持 5 类目标端：
+  - MySQL
+  - PostgreSQL
+  - SQL Server
+  - Oracle
+  - Kafka
+- 支持两类核心任务：
+  - 单表模拟数据写入
+  - 父子表 / 父子消息关系任务
+- 支持三类调度方式：
+  - 手动执行
+  - 持续写入（间隔调度）
+  - 定时任务（Cron / 触发时间）
+- 支持 Kafka JSON Schema / 示例 JSON 导入、字段路径映射、消息头配置、父子消息映射
+- 执行结果支持返回：
+  - 写入前条数
+  - 写入后条数
+  - 净增条数
+  - 实际写入条数
+  - 空值校验
+  - 空字符串校验
+  - 关系任务外键缺失统计
 
-The rebuilt platform is aimed at these capability layers:
+## 当前能力范围
 
-1. Connector center for MySQL, PostgreSQL, Kafka, HTTP, and file outputs
-2. Dataset studio for rule-driven synthetic schema definitions
-3. Job control for delivery, scheduling, retries, and runtime configuration
-4. Execution ledger for logs, outcomes, and observability
+### 1. 目标连接管理
 
-## Tech stack
+- 新建、编辑、删除、测试目标连接
+- 读取目标端表列表
+- 读取表字段结构
+- 读取多表关系模型
 
-- Backend: Spring Boot 3, Java 21, JPA, Flyway, Quartz
-- Frontend: Vue 3, TypeScript, Vite
-- Database: MySQL 8
+当前已支持的目标连接类型：
 
-## Local development
+- `MYSQL`
+- `POSTGRESQL`
+- `SQLSERVER`
+- `ORACLE`
+- `KAFKA`
 
-### Backend
+### 2. 单表写入任务
+
+- 选择目标连接
+- 选择已有表并自动映射字段
+- 或手动输入表名并自定义字段
+- 配置字段数据类型、主键、非空、生成器
+- 配置批量大小、行数、写入模式、调度方式
+- 立即执行、启动持续写入、暂停、恢复、停止
+
+当前字段生成器支持：
+
+- `SEQUENCE`
+- `RANDOM_INT`
+- `RANDOM_DECIMAL`
+- `STRING`
+- `ENUM`
+- `BOOLEAN`
+- `DATETIME`
+- `UUID`
+
+### 3. 关系任务
+
+- 支持父子表一对多关系写入
+- 支持根据父任务驱动子任务行数
+- 支持关系列自动映射
+- 支持执行级汇总和分表明细
+- 支持数据库关系任务和 Kafka 父子消息任务
+
+数据库关系任务的核心校验项：
+
+- 父表写入条数
+- 子表写入条数
+- 外键缺失数
+- 非空校验数
+- 主键重复数
+
+### 4. Kafka 复杂消息
+
+- 支持普通 JSON 消息写入
+- 支持复杂嵌套 JSON Schema 编辑
+- 支持示例 JSON 解析为 Schema
+- 支持消息 Key / Header 配置
+- 支持父子 Topic 的路径级字段映射
+
+### 5. 执行记录与结果回溯
+
+- 查看任务执行列表
+- 查看单次执行明细
+- 查看关系任务执行汇总
+- 查看每张表 / 每个 Topic 的执行结果
+- 查看写入统计与异常摘要
+
+## 技术栈
+
+### 后端
+
+- Java 21
+- Spring Boot 3.3.5
+- Spring Validation
+- Spring Data JPA
+- Flyway
+- Quartz
+- Kafka Clients
+
+### 前端
+
+- Vue 3
+- TypeScript
+- Vite
+- Vitest
+
+### 默认平台元数据库
+
+- MySQL 8
+
+## 目录结构
+
+```text
+backend/                     后端服务
+frontend/                    前端工作台
+infra/mysql/                 MySQL 初始化脚本
+infra/postgres/              PostgreSQL 初始化脚本
+infra/sqlserver/             SQL Server 初始化脚本
+infra/oracle/                Oracle 初始化脚本
+scripts/                     启动、联调、冒烟脚本
+docs/                        操作文档与联调文档
+docker-compose.yml           本地依赖环境
+DESIGN.md                    设计约束与界面原则
+```
+
+## 本地启动
+
+### 环境要求
+
+- JDK 21
+- Node.js 20 及以上
+- npm
+- Docker / Docker Compose
+- Windows 环境下如果没有 Docker Desktop，可使用 WSL + Docker
+
+### 1. 启动基础依赖
+
+```bash
+docker compose up -d mysql postgres redpanda redpanda-init http-echo
+```
+
+如需启动 SQL Server：
+
+```bash
+docker compose --profile sqlserver up -d sqlserver
+docker exec -i mdg-sqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "MdgSqlServer123!" -i /work/init/01_demo_sink.sql
+```
+
+如需启动 Oracle：
+
+```bash
+docker login container-registry.oracle.com
+docker compose --profile oracle up -d oracle
+```
+
+### 2. 启动后端
 
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-### Frontend
+默认端口：
+
+- 后端 API: `http://127.0.0.1:8888`
+- 健康检查: `http://127.0.0.1:8888/actuator/health`
+- Swagger: `http://127.0.0.1:8888/swagger-ui.html`
+
+默认元数据库配置：
+
+- Host: `127.0.0.1`
+- Port: `3306`
+- Database: `multisource_data_generator`
+- Username: `root`
+- Password: `123456`
+
+如需覆盖元数据库连接，可使用环境变量：
+
+- `APP_DATASOURCE_URL`
+- `APP_DATASOURCE_USERNAME`
+- `APP_DATASOURCE_PASSWORD`
+
+### 3. 启动前端
 
 ```bash
 cd frontend
@@ -54,228 +211,160 @@ npm install
 npm run dev
 ```
 
-### Infrastructure
+默认开发地址：
+
+- 前端: `http://127.0.0.1:5173`
+
+### 4. Docker Compose 一体化启动
+
+如果直接使用仓库内的容器编排，也可以启动前后端：
 
 ```bash
-docker compose up -d mysql postgres redpanda redpanda-init http-echo
+docker compose up -d backend frontend
 ```
 
-Optional target databases for real integration:
+对应地址：
+
+- 前端: `http://127.0.0.1:8080`
+- 后端: `http://127.0.0.1:8888`
+
+## 默认本地目标端
+
+`docker-compose.yml` 当前提供以下本地目标端：
+
+- `mysql`
+  - 端口 `3306`
+  - 含平台元数据库
+  - 含目标库初始化脚本
+- `postgres`
+  - 端口 `5432`
+  - 默认库 `demo_sink`
+- `sqlserver`
+  - 端口 `1433`
+  - 默认库 `mdg_demo`
+  - 默认用户 `sa`
+- `oracle`
+  - 端口 `1521`
+  - 默认服务名 `FREEPDB1`
+  - 默认 schema `MDG_DEMO`
+- `redpanda`
+  - Kafka 兼容 broker
+  - 外部端口 `9092`
+- `http-echo`
+  - HTTP 回显服务
+  - 端口 `9000`
+
+## 使用流程
+
+### 单表写入
+
+1. 进入“数据源连接”
+2. 新建并测试目标连接
+3. 进入“写入任务”
+4. 选择目标连接
+5. 选择已有表，或输入新表名并配置字段
+6. 设置写入条数、批量大小、调度方式
+7. 点击“立即执行”或启动持续写入
+8. 在“执行记录”中查看写入结果
+
+### 关系任务
+
+1. 进入“数据源连接”
+2. 连接目标数据库或 Kafka
+3. 进入“关系任务”
+4. 配置父任务与子任务
+5. 配置关系列或 Kafka 路径映射
+6. 预览样例数据
+7. 执行关系任务
+8. 查看执行汇总和子任务明细
+
+## 真实测试结果
+
+最近一次完整测试结论如下：
+
+### 自动化测试
+
+- 后端测试通过：`113` 个测试
+- 前端测试通过：`56` 个测试
+- 前端构建通过：`npm run build`
+- 后端打包通过：`mvn -DskipTests package`
+
+### 真实目标端联调
+
+以下 5 类目标端均已完成真实连接测试：
+
+- MySQL
+- PostgreSQL
+- SQL Server
+- Oracle
+- Kafka
+
+以下场景已完成真实验证：
+
+- MySQL 单表写入
+- MySQL 关系任务
+- MySQL 持续写入
+- PostgreSQL 单表写入
+- PostgreSQL 关系任务
+- SQL Server 单表写入
+- SQL Server 关系任务
+- Oracle 单表写入
+- Oracle 关系任务
+- Kafka 父子 JSON 关系任务
+- Kafka 持续写入
+
+已验证的结果项包括：
+
+- 平台执行状态与真实目标端结果一致
+- 写入前后条数统计正确
+- 净增条数统计正确
+- 非空校验正确
+- 关系任务外键缺失校验正确
+
+## 常用脚本
+
+### 真实目标端冒烟脚本
 
 ```bash
-docker compose --profile sqlserver up -d sqlserver
-docker exec -i mdg-sqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "MdgSqlServer123!" -i /work/init/01_demo_sink.sql
+powershell -ExecutionPolicy Bypass -File scripts/smoke-write-target.ps1
 ```
 
-```bash
-docker login container-registry.oracle.com
-docker compose --profile oracle up -d oracle
-```
+该脚本支持以下目标端：
 
-The backend expects these environment variables when not using the defaults:
+- `MYSQL`
+- `POSTGRESQL`
+- `SQLSERVER`
+- `ORACLE`
+- `KAFKA`
 
-- `APP_DATASOURCE_URL`
-- `APP_DATASOURCE_USERNAME`
-- `APP_DATASOURCE_PASSWORD`
+典型用途：
 
-Optional quickstart target overrides:
+- 自动创建临时连接
+- 自动创建临时写入任务
+- 自动执行一次真实写入
+- 自动返回写入结果和校验结果
 
-- `MDG_QUICKSTART_HTTP_BASE_URL`
-- `MDG_QUICKSTART_MYSQL_JDBC_URL`
-- `MDG_QUICKSTART_POSTGRESQL_JDBC_URL`
-- `MDG_QUICKSTART_KAFKA_BOOTSTRAP_SERVERS`
+## 相关文档
 
-When the backend runs inside `docker compose`, these values are already injected so quickstart connectors point to the compose services.
+- 平台操作手册：`docs/平台操作手册.md`
+- 目标数据库联调指南：`docs/目标数据库联调指南.md`
+- Kafka 复杂消息 API 验收说明：`docs/Kafka复杂消息API验收说明.md`
+- 历史测试报告：`docs/test-report-2026-04-22.md`
+- 设计说明：`DESIGN.md`
 
-### Local target services
+## 当前定位
 
-The compose file now provisions:
+这个项目当前不是通用 BI 平台，也不是数据同步平台。
 
-- `mysql`: application database plus `demo_sink.synthetic_user_activity`
-- `postgres`: `demo_sink.synthetic_user_activity`
-- `sqlserver` (optional profile): local SQL Server instance on `1433`, plus sample init SQL under `infra/sqlserver/init`
-- `oracle` (optional profile): local Oracle Database Free instance on `1521`, with setup scripts under `infra/oracle/setup`
-- `redpanda`: Kafka-compatible broker with topic `synthetic.user.activity`
-- `http-echo`: simple HTTP request echo target on port `9000`
+它的定位是：
 
-If your MySQL or PostgreSQL volumes were created before the new init scripts were added, recreate those volumes once so the demo sink tables are initialized.
-For SQL Server and Oracle, read `docs/目标数据库联调指南.md` before first startup. Oracle images come from Oracle Container Registry and may require login and a longer first boot time.
+- 面向测试、联调、演示、压测准备的模拟数据写入工具
+- 面向多目标端的结构化数据与消息生成平台
+- 面向中文团队的可视化工作台
 
-## API entry points
+如果后续继续演进，最值得优先扩展的方向是：
 
-- Overview: `GET /api/overview`
-- Connectors: `GET/POST/PUT/DELETE /api/connectors`
-- Connector quickstart: `POST /api/connectors/quickstart/file`
-- Connector quickstart: `POST /api/connectors/quickstart/http`
-- Connector quickstart: `POST /api/connectors/quickstart/mysql`
-- Connector quickstart: `POST /api/connectors/quickstart/postgresql`
-- Connector quickstart: `POST /api/connectors/quickstart/kafka`
-- Connector test: `POST /api/connectors/{id}/test`
-- Datasets: `GET/POST/PUT/DELETE /api/datasets`
-- Dataset quickstart: `POST /api/datasets/quickstart`
-- Dataset preview: `POST /api/datasets/{id}/preview`
-- Jobs: `GET/POST/PUT/DELETE /api/jobs`
-- Job quickstart: `POST /api/jobs/quickstart`
-- Job run: `POST /api/jobs/{id}/run`
-- Job pause: `POST /api/jobs/{id}/pause`
-- Job resume: `POST /api/jobs/{id}/resume`
-- Job disable: `POST /api/jobs/{id}/disable`
-- Executions: `GET /api/executions`
-
-## Preview schema DSL
-
-The new preview engine accepts a JSON object schema rooted at:
-
-```json
-{
-  "type": "object",
-  "fields": {
-    "userId": { "rule": "sequence", "start": 10001, "step": 1 },
-    "city": {
-      "rule": "weighted_enum",
-      "options": [
-        { "value": "Shanghai", "weight": 4 },
-        { "value": "Beijing", "weight": 3 }
-      ]
-    },
-    "score": { "rule": "random_decimal", "min": 60, "max": 99.99, "scale": 2 },
-    "active": { "rule": "boolean", "trueRate": 0.8 },
-    "createdAt": { "rule": "datetime", "from": "2025-01-01T00:00:00Z", "to": "2025-12-31T23:59:59Z" },
-    "profile": {
-      "rule": "object",
-      "fields": {
-        "deviceId": { "rule": "string", "prefix": "dev-", "length": 10 },
-        "channel": { "rule": "enum", "values": ["app", "web"] }
-      }
-    },
-    "tags": {
-      "rule": "array",
-      "sizeMin": 1,
-      "sizeMax": 3,
-      "item": { "rule": "enum", "values": ["new", "vip", "trial"] }
-    },
-    "email": { "rule": "template", "template": "user-${userId}@demo.local" }
-  }
-}
-```
-
-Currently implemented rules:
-
-- `fixed`
-- `sequence`
-- `random_int`
-- `random_decimal`
-- `string`
-- `enum`
-- `weighted_enum`
-- `boolean`
-- `datetime`
-- `object`
-- `array`
-- `reference`
-- `template`
-
-## Current runtime support
-
-- `FILE` connectors support real delivery in `jsonl`, `json`, and `csv`
-- `HTTP` connectors support real delivery with `POST`, `PUT`, or `PATCH`
-- `MYSQL` connectors support real batch insert delivery with `APPEND` and `OVERWRITE`
-- `POSTGRESQL` connectors support real batch insert delivery with `APPEND` and `OVERWRITE`
-- `KAFKA` connectors support real message delivery with `APPEND` and `STREAM`
-
-## Runtime config examples
-
-MySQL / PostgreSQL jobs use `target.table` and can optionally pin column order:
-
-```json
-{
-  "count": 1000,
-  "seed": 20260412,
-  "batchSize": 500,
-  "target": {
-    "table": "synthetic_user_activity",
-    "columns": ["userId", "city", "score", "active", "createdAt", "profile", "tags", "email"]
-  }
-}
-```
-
-Kafka jobs use `target.topic`, with optional partition, message key, and headers:
-
-```json
-{
-  "count": 1000,
-  "seed": 20260412,
-  "target": {
-    "topic": "synthetic.user.activity",
-    "keyField": "userId",
-    "headers": {
-      "source": "multisource-data-generator"
-    }
-  }
-}
-```
-
-One-time jobs use `schedule.triggerAt` in ISO-8601 format:
-
-```json
-{
-  "count": 200,
-  "seed": 20260412,
-  "schedule": {
-    "triggerAt": "2026-04-12T14:00:00Z"
-  },
-  "target": {
-    "table": "synthetic_user_activity"
-  }
-}
-```
-
-Cron jobs use `scheduleType=CRON` with `cronExpression`, for example:
-
-```text
-0 */5 * * * ?
-```
-
-The front-end job workspace now exposes:
-
-- create / edit / delete
-- run now
-- pause / resume / disable
-- scheduler state, next fire time, and previous fire time
-
-## Roadmap
-
-### Phase 1
-
-- Foundation rewrite
-- New schema
-- New backend APIs
-- New front-end shell
-
-### Phase 2
-
-- Connector SPI
-- MySQL / PostgreSQL / Kafka / HTTP / file connectors
-- Dataset rule engine
-- Preview pipeline
-- Real runtime delivery for file, HTTP, MySQL, PostgreSQL, and Kafka connectors
-
-### Phase 3
-
-- Execution engine
-- Scheduling
-- Retry and stop controls
-- Log streaming and monitoring
-
-## Verification
-
-Validated in the current workspace:
-
-- `backend`: `mvn -DskipTests compile`
-- `frontend`: `npm run build`
-- `frontend`: `npm run test:run`
-- `backend`: `mvn test`
-
-Not validated in the current workspace:
-
-- `docker compose config` could not be executed here because Docker CLI is not installed in this environment
+1. 更多目标端类型
+2. 更强的字段生成器模板库
+3. 更完整的关系任务模板
+4. 更丰富的执行监控与统计分析

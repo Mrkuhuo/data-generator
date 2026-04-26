@@ -47,34 +47,11 @@ public class WriteTaskJdbcWriter implements WriteTaskDeliveryWriter {
             List<Map<String, Object>> rows,
             Long executionId
     ) throws Exception {
-        try (Connection jdbcConnection = jdbcSupport.open(connection)) {
-            DatabaseDialect dialect = jdbcSupport.dialect(connection.getDbType());
-            jdbcConnection.setAutoCommit(false);
+        try (Connection jdbcConnection = openTransactionalConnection(connection)) {
             try {
-                if (task.getTableMode() == com.datagenerator.task.domain.TableMode.CREATE_IF_MISSING) {
-                    dialect.createTableIfMissing(jdbcConnection, connection, task);
-                }
-                Long beforeRowCount = tryCountRows(jdbcConnection, connection, task.getTableName());
-
-                if (task.getWriteMode() == com.datagenerator.task.domain.WriteMode.OVERWRITE) {
-                    dialect.clearTargetTable(jdbcConnection, connection, task.getTableName());
-                }
-
-                if (!rows.isEmpty()) {
-                    insertRows(jdbcConnection, task, connection, rows);
-                }
-                long afterRowCount = dialect.countRows(jdbcConnection, connection, task.getTableName());
+                WriteTaskDeliveryResult result = writeWithinTransaction(task, connection, jdbcConnection, rows, executionId);
                 jdbcConnection.commit();
-                long safeBeforeRowCount = beforeRowCount == null ? 0 : beforeRowCount;
-
-                Map<String, Object> details = new LinkedHashMap<>();
-                details.put("deliveryType", "JDBC");
-                details.put("beforeWriteRowCount", safeBeforeRowCount);
-                details.put("afterWriteRowCount", afterRowCount);
-                details.put("rowDelta", afterRowCount - safeBeforeRowCount);
-                details.put("writtenRowCount", rows.size());
-
-                return new WriteTaskDeliveryResult(rows.size(), 0, "目标表写入完成", details);
+                return result;
             } catch (Exception exception) {
                 jdbcConnection.rollback();
                 throw exception;
@@ -84,6 +61,45 @@ public class WriteTaskJdbcWriter implements WriteTaskDeliveryWriter {
 
     public WriteTaskDeliveryResult write(WriteTask task, TargetConnection connection, List<Map<String, Object>> rows) throws Exception {
         return write(task, connection, rows, null);
+    }
+
+    public Connection openTransactionalConnection(TargetConnection connection) throws Exception {
+        Connection jdbcConnection = jdbcSupport.open(connection);
+        jdbcConnection.setAutoCommit(false);
+        return jdbcConnection;
+    }
+
+    public WriteTaskDeliveryResult writeWithinTransaction(
+            WriteTask task,
+            TargetConnection connection,
+            Connection jdbcConnection,
+            List<Map<String, Object>> rows,
+            Long executionId
+    ) throws Exception {
+        DatabaseDialect dialect = jdbcSupport.dialect(connection.getDbType());
+        if (task.getTableMode() == com.datagenerator.task.domain.TableMode.CREATE_IF_MISSING) {
+            dialect.createTableIfMissing(jdbcConnection, connection, task);
+        }
+        Long beforeRowCount = tryCountRows(jdbcConnection, connection, task.getTableName());
+
+        if (task.getWriteMode() == com.datagenerator.task.domain.WriteMode.OVERWRITE) {
+            dialect.clearTargetTable(jdbcConnection, connection, task.getTableName());
+        }
+
+        if (!rows.isEmpty()) {
+            insertRows(jdbcConnection, task, connection, rows);
+        }
+        long afterRowCount = dialect.countRows(jdbcConnection, connection, task.getTableName());
+        long safeBeforeRowCount = beforeRowCount == null ? 0 : beforeRowCount;
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("deliveryType", "JDBC");
+        details.put("beforeWriteRowCount", safeBeforeRowCount);
+        details.put("afterWriteRowCount", afterRowCount);
+        details.put("rowDelta", afterRowCount - safeBeforeRowCount);
+        details.put("writtenRowCount", rows.size());
+
+        return new WriteTaskDeliveryResult(rows.size(), 0, "目标表写入完成", details);
     }
 
     private Long tryCountRows(Connection connection, TargetConnection targetConnection, String tableName) {
@@ -315,6 +331,21 @@ public class WriteTaskJdbcWriter implements WriteTaskDeliveryWriter {
     private LocalDate parseDate(String value) {
         try {
             return LocalDate.parse(value);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            return Instant.parse(value).atZone(java.time.ZoneOffset.UTC).toLocalDate();
+        } catch (Exception ignored) {
+        }
+
+        try {
+            return OffsetDateTime.parse(value).toLocalDate();
+        } catch (Exception ignored) {
+        }
+
+        try {
+            return LocalDateTime.parse(value.replace(" ", "T")).toLocalDate();
         } catch (Exception exception) {
             throw new IllegalArgumentException("无法解析日期值: " + value, exception);
         }

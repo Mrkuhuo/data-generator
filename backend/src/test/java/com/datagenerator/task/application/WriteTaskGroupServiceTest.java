@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,6 +39,7 @@ import com.datagenerator.task.repository.WriteTaskGroupTableExecutionRepository;
 import com.datagenerator.task.repository.WriteTaskRelationRepository;
 import com.datagenerator.task.repository.WriteTaskRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.sql.Connection;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +93,7 @@ class WriteTaskGroupServiceTest {
                 previewService,
                 executionPreparationService,
                 writerRegistry,
+                jdbcWriter,
                 definitionNormalizationService,
                 objectMapper
         );
@@ -146,11 +149,13 @@ class WriteTaskGroupServiceTest {
 
         TargetConnection connection = new TargetConnection();
         connection.setDbType(DatabaseType.MYSQL);
+        Connection jdbcConnection = mock(Connection.class);
 
         when(groupRepository.findById(10L)).thenReturn(Optional.of(group));
         when(taskRepository.findByGroupIdOrderByIdAsc(10L)).thenReturn(List.of(customerTask, orderTask));
         when(relationRepository.findByGroupIdOrderBySortOrderAscIdAsc(10L)).thenReturn(List.of(relation));
         when(connectionService.findById(9L)).thenReturn(connection);
+        when(jdbcWriter.openTransactionalConnection(connection)).thenReturn(jdbcConnection);
         when(previewService.generate(any(), any(), any(), any())).thenReturn(
                 new WriteTaskGroupGenerationResult(
                         20260422L,
@@ -178,16 +183,23 @@ class WriteTaskGroupServiceTest {
                         )
                 )
         );
-        when(jdbcWriter.write(customerTask, connection, List.of(Map.of("id", 1L), Map.of("id", 2L)), 101L))
+        when(jdbcWriter.writeWithinTransaction(
+                customerTask,
+                connection,
+                jdbcConnection,
+                List.of(Map.of("id", 1L), Map.of("id", 2L)),
+                101L
+        ))
                 .thenReturn(new WriteTaskDeliveryResult(
                         2L,
                         0L,
                         "customer ok",
                         Map.of("beforeWriteRowCount", 10L, "afterWriteRowCount", 12L, "writtenRowCount", 2L)
                 ));
-        when(jdbcWriter.write(
+        when(jdbcWriter.writeWithinTransaction(
                 orderTask,
                 connection,
+                jdbcConnection,
                 List.of(
                         Map.of("id", 100L, "customer_id", 1L),
                         Map.of("id", 101L, "customer_id", 2L),
@@ -208,10 +220,17 @@ class WriteTaskGroupServiceTest {
         var response = service.run(10L);
 
         InOrder inOrder = inOrder(jdbcWriter);
-        inOrder.verify(jdbcWriter).write(customerTask, connection, List.of(Map.of("id", 1L), Map.of("id", 2L)), 101L);
-        inOrder.verify(jdbcWriter).write(
+        inOrder.verify(jdbcWriter).writeWithinTransaction(
+                customerTask,
+                connection,
+                jdbcConnection,
+                List.of(Map.of("id", 1L), Map.of("id", 2L)),
+                101L
+        );
+        inOrder.verify(jdbcWriter).writeWithinTransaction(
                 orderTask,
                 connection,
+                jdbcConnection,
                 List.of(
                         Map.of("id", 100L, "customer_id", 1L),
                         Map.of("id", 101L, "customer_id", 2L),
@@ -227,6 +246,113 @@ class WriteTaskGroupServiceTest {
         assertThat(response.insertedRowCount()).isEqualTo(5L);
         assertThat(((Number) response.summary().get("insertedRowCount")).longValue()).isEqualTo(5L);
         assertThat(response.tables()).hasSize(2);
+        verify(jdbcConnection).commit();
+    }
+
+    @Test
+    void run_shouldRollbackJdbcTransactionAndPersistFailedExecutionWhenChildWriteFails() throws Exception {
+        WriteTaskGroup group = new WriteTaskGroup();
+        group.setId(12L);
+        group.setName("rollback-flow");
+        group.setConnectionId(9L);
+        group.setStatus(WriteTaskStatus.READY);
+        group.setScheduleType(WriteTaskScheduleType.MANUAL);
+        group.setSeed(20260422L);
+
+        WriteTask customerTask = task(41L, "customer", "customer");
+        WriteTask orderTask = task(42L, "orders", "orders");
+
+        TargetConnection connection = new TargetConnection();
+        connection.setDbType(DatabaseType.MYSQL);
+        Connection jdbcConnection = mock(Connection.class);
+
+        when(groupRepository.findById(12L)).thenReturn(Optional.of(group));
+        when(taskRepository.findByGroupIdOrderByIdAsc(12L)).thenReturn(List.of(customerTask, orderTask));
+        when(relationRepository.findByGroupIdOrderBySortOrderAscIdAsc(12L)).thenReturn(List.of());
+        when(connectionService.findById(9L)).thenReturn(connection);
+        when(jdbcWriter.openTransactionalConnection(connection)).thenReturn(jdbcConnection);
+        when(previewService.generate(any(), any(), any(), any())).thenReturn(
+                new WriteTaskGroupGenerationResult(
+                        20260422L,
+                        List.of(
+                                new WriteTaskTableGenerationResult(
+                                        customerTask,
+                                        List.of(Map.of("id", 1L)),
+                                        0,
+                                        0,
+                                        0,
+                                        0L
+                                ),
+                                new WriteTaskTableGenerationResult(
+                                        orderTask,
+                                        List.of(Map.of("id", 100L)),
+                                        0,
+                                        0,
+                                        0,
+                                        0L
+                                )
+                        )
+                )
+        );
+        when(jdbcWriter.writeWithinTransaction(customerTask, connection, jdbcConnection, List.of(Map.of("id", 1L)), 101L))
+                .thenReturn(new WriteTaskDeliveryResult(
+                        1L,
+                        0L,
+                        "customer ok",
+                        Map.of("beforeWriteRowCount", 10L, "afterWriteRowCount", 11L, "writtenRowCount", 1L)
+                ));
+        when(jdbcWriter.writeWithinTransaction(orderTask, connection, jdbcConnection, List.of(Map.of("id", 100L)), 101L))
+                .thenThrow(new IllegalStateException("子表写入失败"));
+        when(tableExecutionRepository.findByWriteTaskGroupExecutionIdOrderByIdAsc(101L)).thenReturn(List.of());
+
+        var response = service.run(12L);
+
+        verify(jdbcConnection).rollback();
+        verify(jdbcConnection, never()).commit();
+        assertThat(response.status()).isEqualTo("FAILED");
+        assertThat(response.insertedRowCount()).isZero();
+        assertThat(response.errorSummary()).contains("子表写入失败");
+
+        ArgumentCaptor<WriteTaskGroupTableExecution> tableExecutionCaptor = ArgumentCaptor.forClass(WriteTaskGroupTableExecution.class);
+        verify(tableExecutionRepository, org.mockito.Mockito.atLeastOnce()).save(tableExecutionCaptor.capture());
+        assertThat(tableExecutionCaptor.getAllValues())
+                .filteredOn(tableExecution -> "customer".equals(tableExecution.getTableName()))
+                .anySatisfy(tableExecution -> {
+                    assertThat(tableExecution.getStatus()).isEqualTo(WriteExecutionStatus.FAILED);
+                    assertThat(tableExecution.getInsertedCount()).isZero();
+                    assertThat(tableExecution.getErrorSummary()).contains("JDBC 多表事务已回滚");
+                });
+    }
+
+    @Test
+    void run_shouldPersistFailedExecutionWhenGenerationFails() throws Exception {
+        WriteTaskGroup group = new WriteTaskGroup();
+        group.setId(13L);
+        group.setName("generation-error");
+        group.setConnectionId(9L);
+        group.setStatus(WriteTaskStatus.READY);
+        group.setScheduleType(WriteTaskScheduleType.MANUAL);
+        group.setSeed(20260422L);
+
+        WriteTask task = task(51L, "broken", "broken_table");
+
+        TargetConnection connection = new TargetConnection();
+        connection.setDbType(DatabaseType.MYSQL);
+
+        when(groupRepository.findById(13L)).thenReturn(Optional.of(group));
+        when(taskRepository.findByGroupIdOrderByIdAsc(13L)).thenReturn(List.of(task));
+        when(relationRepository.findByGroupIdOrderBySortOrderAscIdAsc(13L)).thenReturn(List.of());
+        when(connectionService.findById(9L)).thenReturn(connection);
+        when(previewService.generate(any(), any(), any(), any()))
+                .thenThrow(new IllegalArgumentException("关系字段配置错误"));
+        when(tableExecutionRepository.findByWriteTaskGroupExecutionIdOrderByIdAsc(101L)).thenReturn(List.of());
+
+        var response = service.run(13L);
+
+        verify(jdbcWriter, never()).openTransactionalConnection(any());
+        assertThat(response.status()).isEqualTo("FAILED");
+        assertThat(response.plannedTableCount()).isEqualTo(0);
+        assertThat(response.errorSummary()).contains("关系字段配置错误");
     }
 
     @Test

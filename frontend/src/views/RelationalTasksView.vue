@@ -2436,7 +2436,8 @@ function buildDefaultGeneratorConfig(
   columnName: string,
   generatorType: GeneratorType,
   scale: number | null,
-  enumValues: string[] | null
+  enumValues: string[] | null,
+  dbType = ""
 ) {
   switch (generatorType) {
     case "SEQUENCE":
@@ -2450,6 +2451,10 @@ function buildDefaultGeneratorConfig(
     case "BOOLEAN":
       return { trueRate: 0.5 };
     case "DATETIME":
+      if (dbType.trim().toUpperCase() === "DATE") {
+        return { dateOnly: true };
+      }
+      return {};
     case "UUID":
       return {};
     case "STRING":
@@ -2692,7 +2697,7 @@ function defaultGeneratorType(column: DatabaseColumn): GeneratorType {
 
 function buildTaskColumn(column: DatabaseColumn, index: number): TaskColumnForm {
   const generatorType = defaultGeneratorType(column);
-  const generatorConfig = buildDefaultGeneratorConfig(column.columnName, generatorType, column.scale, column.enumValues ?? null);
+  const generatorConfig = buildDefaultGeneratorConfig(column.columnName, generatorType, column.scale, column.enumValues ?? null, column.dbType);
   return {
     localId: `task-column-${nextLocalId++}`,
     columnName: column.columnName,
@@ -3474,7 +3479,7 @@ function normalizeRelations() {
 }
 
 function handleGeneratorTypeChange(column: TaskColumnForm) {
-  const generatorConfig = buildDefaultGeneratorConfig(column.columnName, column.generatorType, column.scaleValue, column.enumValues);
+  const generatorConfig = buildDefaultGeneratorConfig(column.columnName, column.generatorType, column.scaleValue, column.enumValues, column.dbType);
   column.generatorConfig = generatorConfig;
   column.generatorConfigText = serializeConfig(generatorConfig);
 }
@@ -3867,7 +3872,7 @@ function removeTaskField(task: TaskForm, index: number) {
 }
 
 function handleTaskGeneratorTypeChange(task: TaskForm, column: TaskColumnForm) {
-  const generatorConfig = buildDefaultGeneratorConfig(column.columnName || "field", column.generatorType, column.scaleValue, column.enumValues);
+  const generatorConfig = buildDefaultGeneratorConfig(column.columnName || "field", column.generatorType, column.scaleValue, column.enumValues, column.dbType);
   column.generatorConfig = generatorConfig;
   column.generatorConfigText = serializeConfig(generatorConfig);
   commitGeneratorConfig(column, task);

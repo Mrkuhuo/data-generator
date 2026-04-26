@@ -16,6 +16,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class KafkaConnectionSupport {
 
+    private final TargetConnectionSecretCodec secretCodec;
+
+    public KafkaConnectionSupport(TargetConnectionSecretCodec secretCodec) {
+        this.secretCodec = secretCodec;
+    }
+
     public Map<String, Object> readConfig(TargetConnection connection) {
         return JsonConfigSupport.readConfig(connection.getConfigJson(), "连接配置");
     }
@@ -135,7 +141,7 @@ public class KafkaConnectionSupport {
 
     public String resolvePassword(TargetConnection connection, Map<String, Object> config) {
         if (connection.getPasswordValue() != null && !connection.getPasswordValue().isBlank()) {
-            return connection.getPasswordValue();
+            return secretCodec.decryptForUse(connection.getPasswordValue());
         }
         return JsonConfigSupport.optionalString(config, "password", "sasl.password");
     }

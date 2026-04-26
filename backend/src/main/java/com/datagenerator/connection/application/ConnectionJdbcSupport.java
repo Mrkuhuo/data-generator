@@ -12,15 +12,21 @@ import org.springframework.stereotype.Component;
 public class ConnectionJdbcSupport {
 
     private final DatabaseDialectRegistry dialectRegistry;
+    private final TargetConnectionSecretCodec secretCodec;
 
-    public ConnectionJdbcSupport(DatabaseDialectRegistry dialectRegistry) {
+    public ConnectionJdbcSupport(DatabaseDialectRegistry dialectRegistry, TargetConnectionSecretCodec secretCodec) {
         this.dialectRegistry = dialectRegistry;
+        this.secretCodec = secretCodec;
     }
 
     public Connection open(TargetConnection connection) throws Exception {
         rejectKafka(connection.getDbType(), "Kafka 连接不支持 JDBC 操作");
         DatabaseDialect dialect = dialect(connection.getDbType());
-        return DriverManager.getConnection(dialect.buildJdbcUrl(connection), dialect.buildConnectionProperties(connection));
+        TargetConnection runtimeConnection = withDecryptedPassword(connection);
+        return DriverManager.getConnection(
+                dialect.buildJdbcUrl(runtimeConnection),
+                dialect.buildConnectionProperties(runtimeConnection)
+        );
     }
 
     public String buildJdbcUrl(TargetConnection connection) {
@@ -49,5 +55,22 @@ public class ConnectionJdbcSupport {
         if (dbType == DatabaseType.KAFKA) {
             throw new IllegalArgumentException(message);
         }
+    }
+
+    private TargetConnection withDecryptedPassword(TargetConnection connection) {
+        TargetConnection runtimeConnection = new TargetConnection();
+        runtimeConnection.setId(connection.getId());
+        runtimeConnection.setName(connection.getName());
+        runtimeConnection.setDbType(connection.getDbType());
+        runtimeConnection.setHost(connection.getHost());
+        runtimeConnection.setPort(connection.getPort());
+        runtimeConnection.setDatabaseName(connection.getDatabaseName());
+        runtimeConnection.setSchemaName(connection.getSchemaName());
+        runtimeConnection.setUsername(connection.getUsername());
+        runtimeConnection.setPasswordValue(secretCodec.decryptForUse(connection.getPasswordValue()));
+        runtimeConnection.setJdbcParams(connection.getJdbcParams());
+        runtimeConnection.setConfigJson(connection.getConfigJson());
+        runtimeConnection.setStatus(connection.getStatus());
+        return runtimeConnection;
     }
 }

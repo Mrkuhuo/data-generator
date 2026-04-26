@@ -142,12 +142,10 @@ public class WriteTaskService {
         return executionLogRepository.findOrderedByExecutionId(executionId);
     }
 
-    @Transactional
     public WriteTaskExecutionResponse run(Long id) {
         return runInternal(findById(id), WriteExecutionTriggerType.MANUAL);
     }
 
-    @Transactional
     public WriteTaskExecutionResponse runScheduled(Long id, WriteExecutionTriggerType triggerType) {
         if (triggerType != WriteExecutionTriggerType.SCHEDULED && triggerType != WriteExecutionTriggerType.CONTINUOUS) {
             throw new IllegalArgumentException("不支持的调度触发类型: " + triggerType);
@@ -155,7 +153,6 @@ public class WriteTaskService {
         return runInternal(findById(id), triggerType);
     }
 
-    @Transactional
     public WriteTaskExecutionResponse runInternal(WriteTask task, WriteExecutionTriggerType triggerType) {
         if (executionRepository.existsByWriteTaskIdAndStatus(task.getId(), WriteExecutionStatus.RUNNING)) {
             throw new IllegalArgumentException("当前任务仍在执行中，请等待上一批写入完成");

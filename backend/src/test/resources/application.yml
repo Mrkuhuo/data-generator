@@ -1,0 +1,7 @@
+mdg:
+  security:
+    enabled: false
+  secret:
+    key: test-secret-key
+  legacy:
+    enabled: true

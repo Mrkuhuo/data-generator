@@ -26,19 +26,22 @@ public class TargetConnectionService {
     private final TableSchemaIntrospectionService tableSchemaIntrospectionService;
     private final ConnectionJdbcSupport connectionJdbcSupport;
     private final KafkaConnectionSupport kafkaConnectionSupport;
+    private final TargetConnectionSecretCodec secretCodec;
 
     public TargetConnectionService(
             TargetConnectionRepository repository,
             ConnectionProbeService connectionProbeService,
             TableSchemaIntrospectionService tableSchemaIntrospectionService,
             ConnectionJdbcSupport connectionJdbcSupport,
-            KafkaConnectionSupport kafkaConnectionSupport
+            KafkaConnectionSupport kafkaConnectionSupport,
+            TargetConnectionSecretCodec secretCodec
     ) {
         this.repository = repository;
         this.connectionProbeService = connectionProbeService;
         this.tableSchemaIntrospectionService = tableSchemaIntrospectionService;
         this.connectionJdbcSupport = connectionJdbcSupport;
         this.kafkaConnectionSupport = kafkaConnectionSupport;
+        this.secretCodec = secretCodec;
     }
 
     public List<TargetConnection> findAll() {
@@ -127,7 +130,7 @@ public class TargetConnectionService {
         connection.setConfigJson(JsonConfigSupport.normalizeJson(request.configJson(), "configJson"));
 
         if (request.password() != null && !request.password().isBlank()) {
-            connection.setPasswordValue(request.password());
+            connection.setPasswordValue(secretCodec.encryptForStorage(request.password()));
         } else if (!keepPasswordWhenBlank || connection.getPasswordValue() == null || connection.getPasswordValue().isBlank()) {
             throw new IllegalArgumentException("password 不能为空");
         }
@@ -152,10 +155,10 @@ public class TargetConnectionService {
         connection.setUsername(username == null ? "" : username);
 
         if (request.password() != null && !request.password().isBlank()) {
-            connection.setPasswordValue(request.password());
+            connection.setPasswordValue(secretCodec.encryptForStorage(request.password()));
         } else if (!keepPasswordWhenBlank || connection.getPasswordValue() == null) {
             String password = JsonConfigSupport.optionalString(config, "password", "sasl.password");
-            connection.setPasswordValue(password == null ? "" : password);
+            connection.setPasswordValue(password == null ? "" : secretCodec.encryptForStorage(password));
         }
 
         Map<String, Object> sanitized = kafkaConnectionSupport.sanitizeConfig(config);

@@ -53,10 +53,10 @@ public class TableSchemaIntrospectionService {
 
     public DatabaseTableSchemaResponse describeTable(TargetConnection connection, String tableName) {
         if (tableName == null || tableName.isBlank()) {
-            throw new IllegalArgumentException("tableName 涓嶈兘涓虹┖");
+            throw new IllegalArgumentException("tableName 不能为空");
         }
         if (connection.getDbType() == DatabaseType.KAFKA) {
-            throw new IllegalArgumentException("Kafka 杩炴帴涓嶆敮鎸佽鍙栬〃缁撴瀯");
+            throw new IllegalArgumentException("Kafka 连接不支持读取表结构");
         }
 
         try (Connection jdbcConnection = jdbcSupport.open(connection)) {
@@ -65,16 +65,16 @@ public class TableSchemaIntrospectionService {
         } catch (IllegalArgumentException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new IllegalArgumentException("璇诲彇琛ㄧ粨鏋勫け璐? " + exception.getMessage(), exception);
+            throw new IllegalArgumentException("读取表结构失败: " + exception.getMessage(), exception);
         }
     }
 
     public DatabaseModelResponse describeModel(TargetConnection connection, List<String> tableNames) {
         if (tableNames == null || tableNames.isEmpty()) {
-            throw new IllegalArgumentException("tableNames 涓嶈兘涓虹┖");
+            throw new IllegalArgumentException("tableNames 不能为空");
         }
         if (connection.getDbType() == DatabaseType.KAFKA) {
-            throw new IllegalArgumentException("Kafka 杩炴帴涓嶆敮鎸佽鍙栧叧鑱旇〃缁撴瀯");
+            throw new IllegalArgumentException("Kafka 连接不支持读取多表结构");
         }
 
         try (Connection jdbcConnection = jdbcSupport.open(connection)) {
@@ -83,7 +83,7 @@ public class TableSchemaIntrospectionService {
         } catch (IllegalArgumentException exception) {
             throw exception;
         } catch (Exception exception) {
-            throw new IllegalArgumentException("璇诲彇鍏宠仈妯″瀷澶辫触: " + exception.getMessage(), exception);
+            throw new IllegalArgumentException("读取多表模型失败: " + exception.getMessage(), exception);
         }
     }
 }

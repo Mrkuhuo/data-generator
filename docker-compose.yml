@@ -120,6 +120,10 @@ services:
       APP_DATASOURCE_URL: jdbc:mysql://mysql:3306/multisource_data_generator?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       APP_DATASOURCE_USERNAME: root
       APP_DATASOURCE_PASSWORD: 123456
+      MDG_SECURITY_ENABLED: "true"
+      MDG_SECURITY_USERNAME: ${MDG_SECURITY_USERNAME:-admin}
+      MDG_SECURITY_PASSWORD: ${MDG_SECURITY_PASSWORD:-123456}
+      MDG_SECRET_KEY: ${MDG_SECRET_KEY:-local-dev-secret-change-me}
       MDG_QUICKSTART_HTTP_BASE_URL: http://http-echo
       MDG_QUICKSTART_MYSQL_JDBC_URL: jdbc:mysql://mysql:3306/demo_sink?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       MDG_QUICKSTART_POSTGRESQL_JDBC_URL: jdbc:postgresql://postgres:5432/demo_sink

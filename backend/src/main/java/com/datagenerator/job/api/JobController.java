@@ -7,6 +7,7 @@ import com.datagenerator.job.domain.JobDefinition;
 import com.datagenerator.job.domain.JobExecution;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/jobs")
+@ConditionalOnProperty(name = "mdg.legacy.enabled", havingValue = "true")
 public class JobController {
 
     private final JobService jobService;

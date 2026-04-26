@@ -12,6 +12,16 @@
             <span class="nav__label">{{ item.label }}</span>
           </RouterLink>
         </nav>
+
+        <form v-if="!authState" class="auth-form" @submit.prevent="saveAuth">
+          <input v-model.trim="authUsername" autocomplete="username" placeholder="用户名" />
+          <input v-model="authPassword" autocomplete="current-password" placeholder="密码" type="password" />
+          <button class="button" type="submit">登录</button>
+        </form>
+        <div v-else class="auth-state">
+          <span>{{ authState.username }}</span>
+          <button class="button button--ghost" type="button" @click="logout">退出</button>
+        </div>
       </div>
     </header>
 
@@ -22,8 +32,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
+import { clearApiCredentials, getApiCredentials, setApiCredentials, type ApiAuthState } from "../api/client";
 
 const navItems = [
   { to: "/connections", label: "数据源连接" },
@@ -34,10 +45,25 @@ const navItems = [
 ];
 
 const route = useRoute();
+const authState = ref<ApiAuthState | null>(getApiCredentials());
+const authUsername = ref(authState.value?.username ?? "admin");
+const authPassword = ref("");
 
 const currentNav = computed(() =>
   navItems.find((item) => route.path.startsWith(item.to)) ?? navItems[0]
 );
 
 const isRelationalRoute = computed(() => route.path.startsWith("/relational-write-tasks"));
+
+function saveAuth() {
+  setApiCredentials(authUsername.value, authPassword.value);
+  authState.value = getApiCredentials();
+  authPassword.value = "";
+}
+
+function logout() {
+  clearApiCredentials();
+  authState.value = null;
+  authPassword.value = "";
+}
 </script>
