@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant UI as 前端工作台
+    participant API as 后端 API
+    participant Plan as 任务准备
+    participant Gen as 数据生成器
+    participant Val as 校验器
+    participant Writer as 写入器
+    participant Target as 目标数据源
+    participant Log as 执行记录
+
+    UI->>API: 点击立即执行
+    API->>Log: 创建 RUNNING 执行实例
+    API->>Plan: 读取连接和任务配置
+    Plan->>Gen: 生成模拟数据
+    Gen->>Val: 非空和关系校验
+    Val->>Writer: 提交待写入数据
+    Writer->>Target: 写入目标端
+    Target-->>Writer: 返回写入结果
+    Writer->>Log: 保存写入前后条数和摘要
+    Log-->>UI: 返回执行实例详情
